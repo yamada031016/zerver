@@ -121,7 +121,7 @@ pub const HTTPServer = struct {
     fn extractFileName(self:*HTTPServer, recv:[]u8) ![]const u8 {
         _=&self;
         var file_path: []const u8 = undefined;
-        var tok_itr = mem.tokenize(u8, recv, " ");
+        var tok_itr = mem.tokenizeAny(u8, recv, " ");
 
         if (!mem.eql(u8, tok_itr.next() orelse "", "GET"))
         return ServeFileError.HeaderDidNotMatch;
@@ -147,7 +147,7 @@ pub const HTTPServer = struct {
         const file_ext = fs.path.extension(tmp_fileName);
         if (file_ext.len == 0) {
             // /hogeのとき.htmlを補完する
-            var path_buf: [fs.MAX_PATH_BYTES]u8 = undefined;
+            var path_buf: [fs.max_path_bytes]u8 = undefined;
             // try files.insert(0, try std.fmt.bufPrint(&path_buf, "{s}.html", .{files.pop()}));
             tmp_fileName = try std.fmt.bufPrint(&path_buf, "{s}.html", .{tmp_fileName});
         }

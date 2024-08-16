@@ -3,7 +3,6 @@ const net = std.net;
 const mem = std.mem;
 const fs = std.fs;
 const Mime = @import("mime.zig").Mime;
-const FileMonitor = @import("./file-monitor.zig").FileMonitor;
 
 pub const HTTPServer = struct {
     const stdout = std.io.getStdOut().writer();
@@ -12,13 +11,9 @@ pub const HTTPServer = struct {
 
     var self_port_addr: u16 = undefined;
     var self_ipaddr: []const u8 = undefined;
-    var monitor: FileMonitor = undefined;
-    // var files = std.ArrayList([]const u8).init(allocator);
-    var files: [][]const u8 = undefined;
 
     listener: net.Server,
     dir: fs.Dir,
-    // files: ?[]fs.File = null,
 
     pub fn init(public_path:[]const u8,ipaddr:[]const u8,  port_addr:u16) !HTTPServer {
         self_port_addr = port_addr;
@@ -31,7 +26,7 @@ pub const HTTPServer = struct {
             } else |err| {
                 switch(err) {
                     error.AddressInUse => {
-                        try stdout.print("port :{} is already in use.\n", .{port_addr});
+                        try stdout.print("port :{} is already in use.\n", .{self_port_addr});
                         self_port_addr += 1;
                         self_addr = try net.Address.resolveIp(self_ipaddr, self_port_addr);
                     },
@@ -49,6 +44,12 @@ pub const HTTPServer = struct {
         return _server;
     }
 
+    pub fn deinit(self:*HTTPServer) void {
+        self.dir.close();
+        self.listener.deinit();
+        _=gpa.deinit();
+    }
+
     pub fn serve(self:*HTTPServer) !noreturn {
         try stdout.print("listening on {s}:{}\npress Ctrl-C to quit...\n", .{self_ipaddr, self_port_addr});
         while (self.listener.accept()) |conn| {
@@ -63,29 +64,15 @@ pub const HTTPServer = struct {
                         std.log.err("Failed to serve client: {}", .{err});
                     }
                 };
+            conn.stream.close();
             } else {
                 // parent process
                 const wait_result = std.posix.waitpid(fork_pid, 0);
                 if (wait_result.status != 0) {
                     try stdout.print("終了コード: {}\n", .{wait_result.status});
                 }
-            }
-            // std.debug.print("fileName:{s}\n", .{files[0]});
-            // monitor = try FileMonitor.init("index.html", self.dir);
-            //
-            // while(true) {
-            //     std.time.sleep(1_000_000_000);
-            //     if(try monitor.detectChanges()) {
-            //         self.sendFile(@constCast(&conn.stream), "index.html") catch |err| {
-            //             if (@errorReturnTrace()) |bt| {
-            //                 std.log.err("Failed to serve client: {}: {}", .{ err, bt });
-            //             } else {
-            //                 std.log.err("Failed to serve client: {}", .{err});
-            //             }
-            //         };
-            //     }
-            // }
             conn.stream.close();
+            }
         } else |err| {
             std.log.err("Failed to accept connection: {}", .{err});
             return err;
@@ -128,7 +115,7 @@ pub const HTTPServer = struct {
 
         const path = tok_itr.next() orelse "";
         if (path[0] != '/')
-        return ServeFileError.HeaderDidNotMatch;
+            return ServeFileError.HeaderDidNotMatch;
 
         if (mem.eql(u8, path, "/"))
         file_path = "index"
@@ -136,7 +123,7 @@ pub const HTTPServer = struct {
         file_path = path[1..];
 
         if (!mem.startsWith(u8, tok_itr.rest(), "HTTP/1.1\r\n"))
-        return ServeFileError.HeaderDidNotMatch;
+            return ServeFileError.HeaderDidNotMatch;
 
         return file_path;
     }
@@ -148,7 +135,6 @@ pub const HTTPServer = struct {
         if (file_ext.len == 0) {
             // /hogeのとき.htmlを補完する
             var path_buf: [fs.max_path_bytes]u8 = undefined;
-            // try files.insert(0, try std.fmt.bufPrint(&path_buf, "{s}.html", .{files.pop()}));
             tmp_fileName = try std.fmt.bufPrint(&path_buf, "{s}.html", .{tmp_fileName});
         }
         return tmp_fileName;
@@ -162,9 +148,11 @@ pub const HTTPServer = struct {
         var body_file = self.dir.openFile(file, .{}) catch {
             try stream.writeAll(
             \\HTTP/1.1 404 Not Found
-            \\Content-Type: text/plain
+            \\Connection: close
+            \\Content-Type: text/html; charset=UTF-8
             \\
-            \\404 Not Found
+            \\
+            \\<h1>404 Not Found.</h1>
         );
             return ServeFileError.FileNotFound;
         };
@@ -189,7 +177,7 @@ pub const HTTPServer = struct {
         var send_total: usize = 0;
         var send_len: usize = 0;
         while (true) {
-            var buf: [2048]u8 = undefined;
+            var buf: [2048 * 5]u8 = undefined;
             send_len = try body_file.read(&buf);
             if (send_len == 0)
             break;
@@ -202,8 +190,8 @@ pub const HTTPServer = struct {
 };
 
 const ServeFileError = error{
-RecvHeaderEOF,
-RecvHeaderExceededBuffer,
-HeaderDidNotMatch,
-FileNotFound,
+    RecvHeaderEOF,
+    RecvHeaderExceededBuffer,
+    HeaderDidNotMatch,
+    FileNotFound,
 };

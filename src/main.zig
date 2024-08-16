@@ -8,16 +8,24 @@ pub fn main() !void {
         std.log.err("Usage: {s} <serve dir>", .{exe_name});
         return;
     };
-    const act = std.posix.Sigaction{
-        .handler = .{ .handler = std.posix.SIG.ERR },
-        .mask = std.posix.empty_sigset,
-        .flags = 0,
-    };
 
     const port_addr:u16 = 8000;
     const ip_addr = "0.0.0.0";
+    var server = try HTTPServer.init(public_path,ip_addr,  port_addr);
+    defer server.deinit();
+
+    var act = std.posix.Sigaction{
+        .handler = .{
+            .handler = struct {
+                fn wrapper(_: c_int) callconv(.C) void {
+                    @panic("accept SIGINT.\nbye ...\n");
+                }
+            }.wrapper,
+        },
+        .mask = std.posix.empty_sigset,
+        .flags = 0,
+    };
     try std.posix.sigaction(std.posix.SIG.INT, &act, null);
 
-    var server = try HTTPServer.init(public_path,ip_addr,  port_addr);
     try server.serve();
 }

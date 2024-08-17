@@ -64,19 +64,18 @@ pub const HTTPServer = struct {
                         std.log.err("Failed to serve client: {}", .{err});
                     }
                 };
-            conn.stream.close();
             } else {
                 // parent process
                 const wait_result = std.posix.waitpid(fork_pid, 0);
                 if (wait_result.status != 0) {
                     try stdout.print("終了コード: {}\n", .{wait_result.status});
                 }
-            conn.stream.close();
             }
         } else |err| {
             std.log.err("Failed to accept connection: {}", .{err});
             return err;
         }
+        conn.stream.close();
     }
 
     fn handleStream(self:*HTTPServer, stream: *net.Stream) !void {

@@ -188,7 +188,7 @@ pub const HTTPServer = struct {
 
     }
 
-    pub fn getPortNumber(self:*HTTPServer) u16 {
+    pub fn getPortNumber(_:*HTTPServer) u16 {
         return self_port_addr;
     }
 };

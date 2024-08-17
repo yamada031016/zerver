@@ -71,11 +71,11 @@ pub const HTTPServer = struct {
                     try stdout.print("終了コード: {}\n", .{wait_result.status});
                 }
             }
+        conn.stream.close();
         } else |err| {
             std.log.err("Failed to accept connection: {}", .{err});
             return err;
         }
-        conn.stream.close();
     }
 
     fn handleStream(self:*HTTPServer, stream: *net.Stream) !void {

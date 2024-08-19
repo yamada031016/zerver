@@ -1,61 +1,25 @@
 const std = @import("std");
 const net = std.net;
 
-pub const WebSocketFormat = extern struct {
-    fin:u8 = 0b1000_0001,
-    // fin: u1 = 1,
-    // rsv1: u1 = 0,
-    // rsv2: u1 = 0,
-    // rsv3: u1 = 0,
-    // opcode: u4 = 0x1, // text frame
-    // mask:u1 = 0,
-    // payload_len:u7,
-    payload_len:u8,
-    // extend_payload_len:?*ExPayloadLen = null,
-
-    const ExPayloadLen = extern union {
-        payload126: u16,
-        payload127: u64,
-    };
-
-    pub fn init(payload:[]const u8) WebSocketFormat {
-        switch (payload.len) {
-            126 => return .{
-                .payload_len = 126,
-                // .extend_payload_len = @constCast(&ExPayloadLen{.payload126 = 0}),
-            },
-            127 => return .{
-                .payload_len = 127,
-                // .extend_payload_len = @constCast(&ExPayloadLen{.payload127 = 0}),
-            },
-            else => |len| {
-
-                std.debug.print("less than !", .{});
-                return .{
-                    .payload_len = @intCast(len),
-                };
-            },
-        }
-    }
-
-};
-
 pub fn main() !void {
-   var ws =  try WebSocketServer.init();
-    // try ws.handshakewebsocketopening();
-    try ws.sendReload();
+    var manager =  try WebSocketManager.init(5555);
+    var ws = try manager.waitConnection();
+    while(true) {
+        try ws.sendReload();
+        ws = try manager.waitConnection();
+    }
 }
 
-pub const WebSocketServer = struct {
+pub const WebSocketManager = struct {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
-    stream: *std.net.Stream,
-    key:[]const u8,
 
-    pub fn init(port:u16) !WebSocketServer {
+    listener: std.net.Server ,
+
+    pub fn init(port:u16) !WebSocketManager {
         var self_port_addr = port;
         var self_addr = try net.Address.resolveIp("127.0.0.1", self_port_addr);
-        var listener = listen: {
+        const listener = listen: {
             while(true) {
                 if(net.Address.listen(self_addr, .{})) |_listener| {
                     break :listen _listener;
@@ -71,20 +35,21 @@ pub const WebSocketServer = struct {
                 }
             }
         };
-        while (listener.accept()) |conn| {
+        return .{
+            .listener = listener,
+        };
+    }
+
+    fn waitConnection(self:*WebSocketManager) !WebSocketServer {
+        while (self.listener.accept()) |conn| {
             std.log.info("Accepted Connection from: {}", .{conn.address});
-            return try WebSocketServer.handleStream(@constCast(&conn.stream));
+            return try self.handleStream(@constCast(&conn.stream));
         } else |err| {
             return err;
         }
     }
 
-    // pub fn deinit(self:*WebSocketServer) void {
-    //     self.listener.deinit();
-    //     _=gpa.deinit();
-    // }
-
-    fn handleStream(stream:*std.net.Stream) !WebSocketServer {
+    fn handleStream(_:*WebSocketManager, stream:*std.net.Stream) !WebSocketServer {
         var recv_buf: [2048]u8 = undefined;
         var recv_total: usize = 0;
         while (stream.read(recv_buf[0..])) |recv_len| {
@@ -126,6 +91,15 @@ pub const WebSocketServer = struct {
         }
         unreachable;
     }
+
+};
+
+pub const WebSocketServer = struct {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    const allocator = gpa.allocator();
+
+    stream: *std.net.Stream,
+    key:[]const u8,
 
     pub fn readLoop(self:*const WebSocketServer) !void {
         std.debug.print("start WebSocket connection!\n", .{});
@@ -237,4 +211,43 @@ pub const WebSocketServer = struct {
         std.debug.print("{s}", .{res});
         try self.stream.writer().writeAll(res);
     }
+};
+
+pub const WebSocketFormat = extern struct {
+    fin:u8 = 0b1000_0001,
+    // fin: u1 = 1,
+    // rsv1: u1 = 0,
+    // rsv2: u1 = 0,
+    // rsv3: u1 = 0,
+    // opcode: u4 = 0x1, // text frame
+    // mask:u1 = 0,
+    // payload_len:u7,
+    payload_len:u8,
+    // extend_payload_len:?*ExPayloadLen = null,
+
+    const ExPayloadLen = extern union {
+        payload126: u16,
+        payload127: u64,
+    };
+
+    pub fn init(payload:[]const u8) WebSocketFormat {
+        switch (payload.len) {
+            126 => return .{
+                .payload_len = 126,
+                // .extend_payload_len = @constCast(&ExPayloadLen{.payload126 = 0}),
+            },
+            127 => return .{
+                .payload_len = 127,
+                // .extend_payload_len = @constCast(&ExPayloadLen{.payload127 = 0}),
+            },
+            else => |len| {
+
+                std.debug.print("less than !", .{});
+                return .{
+                    .payload_len = @intCast(len),
+                };
+            },
+        }
+    }
+
 };

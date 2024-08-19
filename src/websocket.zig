@@ -73,8 +73,8 @@ pub const WebSocketServer = struct {
         };
         while (listener.accept()) |conn| {
             std.log.info("Accepted Connection from: {}", .{conn.address});
-            return try WebSocketServer.handleStream(@constCast(&conn.stream));
             listener.deinit();
+            return try WebSocketServer.handleStream(@constCast(&conn.stream));
         } else |err| {
             return err;
         }

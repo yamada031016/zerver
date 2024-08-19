@@ -74,10 +74,16 @@ pub const WebSocketServer = struct {
         while (listener.accept()) |conn| {
             std.log.info("Accepted Connection from: {}", .{conn.address});
             return try WebSocketServer.handleStream(@constCast(&conn.stream));
+            listener.deinit();
         } else |err| {
             return err;
         }
     }
+
+    // pub fn deinit(self:*WebSocketServer) void {
+    //     self.listener.deinit();
+    //     _=gpa.deinit();
+    // }
 
     fn handleStream(stream:*std.net.Stream) !WebSocketServer {
         var recv_buf: [2048]u8 = undefined;

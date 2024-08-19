@@ -26,7 +26,15 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    const websocket_mod = b.addModule("websocket-zig", .{
+        .root_source_file = b.path("src/websocket.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
+
     exe.root_module.addImport("zerver", zerver_mod);
+    exe.root_module.addImport("websocket-zig", websocket_mod);
 
 
     b.installArtifact(exe);

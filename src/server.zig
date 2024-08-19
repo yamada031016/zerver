@@ -130,7 +130,7 @@ pub const HTTPServer = struct {
                 const fork_pid = try std.posix.fork();
                 if (fork_pid == 0) {
                     // child process
-                    const ws = WebSocketServer.init(stream, key);
+                    var ws = WebSocketServer{.stream = stream, .key = key};
                     try ws.handshakeWebSocketOpening();
                     // try ws.readLoop();
                     try ws.sendReload();

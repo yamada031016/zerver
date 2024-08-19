@@ -40,7 +40,7 @@ pub const WebSocketManager = struct {
         };
     }
 
-    fn waitConnection(self:*WebSocketManager) !WebSocketServer {
+    pub fn waitConnection(self:*WebSocketManager) !WebSocketServer {
         while (self.listener.accept()) |conn| {
             std.log.info("Accepted Connection from: {}", .{conn.address});
             return try self.handleStream(@constCast(&conn.stream));

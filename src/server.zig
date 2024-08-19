@@ -3,7 +3,7 @@ const net = std.net;
 const mem = std.mem;
 const fs = std.fs;
 const Mime = @import("mime.zig").Mime;
-const WebSocketServer = @import("websocket.zig").WebSocketServer;
+const WebSocketServer = @import("websocket-zig").WebSocketServer;
 
 pub const HTTPServer = struct {
     const stdout = std.io.getStdOut().writer();

@@ -33,7 +33,7 @@ pub const WebSocketFormat = extern struct {
                 std.debug.print("less than !", .{});
                 return .{
                     .payload_len = @intCast(len),
-};
+                };
             },
         }
     }
@@ -52,8 +52,8 @@ pub const WebSocketServer = struct {
     stream: *std.net.Stream,
     key:[]const u8,
 
-    pub fn init() !WebSocketServer {
-        var self_port_addr:u16 = 5555;
+    pub fn init(port:u16) !WebSocketServer {
+        var self_port_addr = port;
         var self_addr = try net.Address.resolveIp("127.0.0.1", self_port_addr);
         var listener = listen: {
             while(true) {
@@ -73,7 +73,6 @@ pub const WebSocketServer = struct {
         };
         while (listener.accept()) |conn| {
             std.log.info("Accepted Connection from: {}", .{conn.address});
-            listener.deinit();
             return try WebSocketServer.handleStream(@constCast(&conn.stream));
         } else |err| {
             return err;

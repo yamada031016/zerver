@@ -3,7 +3,6 @@ const net = std.net;
 const mem = std.mem;
 const fs = std.fs;
 const Mime = @import("mime.zig").Mime;
-const WebSocketServer = @import("websocket-zig").WebSocketServer;
 
 pub const HTTPServer = struct {
     const stdout = std.io.getStdOut().writer();
@@ -123,20 +122,7 @@ pub const HTTPServer = struct {
         };
         defer request.deinit();
 
-        if (request.contains("Upgrade") and request.contains("Connection") and request.contains("Sec-WebSocket-Key")) {
-            std.debug.print("WebSocket Start!\n", .{});
-            if (std.mem.eql(u8, request.get("Upgrade").?, " websocket") and std.mem.eql(u8, request.get("Connection").?, " Upgrade")) {
-                const key = request.get("Sec-WebSocket-Key").?;
-                const fork_pid = try std.posix.fork();
-                if (fork_pid == 0) {
-                    // child process
-                    var ws = WebSocketServer{.stream = stream, .key = key};
-                    try ws.handshakeWebSocketOpening();
-                    // try ws.readLoop();
-                    try ws.sendReload();
-                }
-            }
-        } else if (request.get("GET")) |val| {
+        if (request.get("GET")) |val| {
             const file_path = try self.extractFileName(val);
             try self.sendFile(stream, file_path);
         }

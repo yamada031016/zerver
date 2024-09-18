@@ -1,6 +1,6 @@
 const std = @import("std");
 const ch = @import("ClientHello.zig");
-const RawClientHello = ch.RawClientHello;
+const ClientHello = ch.ClientHello;
 const sh = @import("ServerHello.zig");
 const ServerHello = sh.ServerHello;
 const HandshakeType = std.crypto.tls.HandshakeType;
@@ -26,7 +26,7 @@ pub const Handshake = union(HandshakeType) {
     const ClientHandshake = struct {
         handshake_type: HandshakeType,
         length: [3]u8,
-        message: RawClientHello,
+        message: ClientHello,
     };
     const ServerHandshake = struct {
         handshake_type: HandshakeType,
@@ -38,7 +38,7 @@ pub const Handshake = union(HandshakeType) {
         const length = [_]u8{ data[1], data[2], data[3] };
         switch (handshake_type) {
             .client_hello => {
-                const client_hello = try RawClientHello.parse(data[4..]);
+                const client_hello = try ClientHello.parse(data[4..]);
                 return Handshake{ .client_hello = .{
                     .handshake_type = handshake_type,
                     .length = length,
@@ -46,7 +46,7 @@ pub const Handshake = union(HandshakeType) {
                 } };
             },
             .server_hello => {
-                const client_hello = try RawClientHello.parse(data[4..]);
+                const client_hello = try ClientHello.parse(data[4..]);
                 return Handshake{ .client_hello = .{
                     .handshake_type = handshake_type,
                     .length = length,

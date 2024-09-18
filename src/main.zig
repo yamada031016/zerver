@@ -9,16 +9,16 @@ pub fn main() !void {
         return;
     };
 
-    const port_addr:u16 = 8000;
+    const port_addr: u16 = 8000;
     const ip_addr = "0.0.0.0";
-    var server = try HTTPServer.init(public_path,ip_addr,  port_addr);
+    var server = try HTTPServer.init(public_path, ip_addr, port_addr);
     defer server.deinit();
 
     var act = std.posix.Sigaction{
         .handler = .{
             .handler = struct {
                 fn wrapper(_: c_int) callconv(.C) void {
-                    @panic("accept SIGINT.\nbye ...\n");
+                    std.process.exit(0);
                 }
             }.wrapper,
         },

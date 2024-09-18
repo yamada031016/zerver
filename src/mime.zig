@@ -8,21 +8,23 @@ pub const Mime = enum {
     jpg,
     png,
     wasm,
+    js,
+    tar,
     other,
 
     pub fn asMime(filePath: []const u8) Mime {
         const file_ext = extractFileExtension(filePath);
-        // 超雑な変換
-        return switch (file_ext[1]) {
-            'h' => .html,
-            'c' => .css,
-            'm' => .map,
-            's' => .svg,
-            'j' => .jpg,
-            'p' => .png,
-            'w' => .wasm,
-            else => .other,
-        };
+        return
+            if (std.mem.eql(u8, file_ext, ".html")) .html
+            else if (std.mem.eql(u8, file_ext, ".css")) .css
+            else if (std.mem.eql(u8, file_ext, ".map")) .map
+            else if (std.mem.eql(u8, file_ext, ".svg")) .svg
+            else if (std.mem.eql(u8, file_ext, ".jpg")) .jpg
+            else if (std.mem.eql(u8, file_ext, ".png")) .png
+            else if (std.mem.eql(u8, file_ext, ".wasm")) .wasm
+            else if (std.mem.eql(u8, file_ext, ".js")) .js
+            else if (std.mem.eql(u8, file_ext, ".tar")) .tar
+            else unreachable;
     }
     pub fn asText(self: *const Mime) []const u8 {
         return switch (self.*) {
@@ -33,6 +35,8 @@ pub const Mime = enum {
             .jpg => "image/jpg",
             .png => "image/png",
             .wasm => "application/wasm",
+            .js => "text/javascript",
+            .tar => "application/x-tar",
             .other => "text/plain",
         };
     }

@@ -1,4 +1,5 @@
 const std = @import("std");
+const tls = std.crypto.tls;
 const handshake = @import("handshake.zig");
 const TLSHandshakeError = handshake.TLSHandshakeError;
 const helloFields = @import("helloFields.zig");
@@ -116,8 +117,8 @@ pub const ClientHello = struct {
             .version = version,
             .random = random,
             .legacy_session_id = legacy_session_id,
-            .cipher_suite = cipher_suite,
-            .extensions = ex_list,
+            .cipher_suite = try std.heap.page_allocator.dupe(tls.CipherSuite, cipher_suite),
+            .extensions = try std.heap.page_allocator.dupe(ExtensionList, ex_list),
         };
     }
 };

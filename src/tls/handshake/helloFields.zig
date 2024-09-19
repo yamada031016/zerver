@@ -1,4 +1,5 @@
 const std = @import("std");
+const tls = std.crypto.tls;
 const ExtensionType = std.crypto.tls.ExtensionType;
 
 pub const Version = extern struct {
@@ -56,8 +57,8 @@ pub const Extensions = extern struct {
         var buf: [1024 * 2]u8 = undefined;
         var buf_pos: usize = 0;
         inline for (extensions) |ex| {
-            buf[buf_pos] = @as(u8, @intCast(@intFromEnum(ex.extension_type) & 0x1100));
-            buf[buf_pos + 1] = @as(u8, @intCast(@intFromEnum(ex.extension_type) & 0x0011));
+            buf[buf_pos] = @as(u8, @intCast(@intFromEnum(ex.extension_type) & 0xFF00));
+            buf[buf_pos + 1] = @as(u8, @intCast(@intFromEnum(ex.extension_type) & 0x00FF));
             buf[buf_pos + 2] = (ex.length[0]);
             buf[buf_pos + 3] = (ex.length[1]);
             buf[buf_pos + 4] = (ex.length[2]);
@@ -113,7 +114,7 @@ pub const ExtensionList = union(ExtensionType) {
     signature_algorithms_cert,
     key_share: KeyShare,
 
-    const KeyShare = struct {
+    pub const KeyShare = struct {
         group: std.crypto.tls.NamedGroup,
         key_exchange: [32]u8,
     };
@@ -248,6 +249,88 @@ pub const ExtensionList = union(ExtensionType) {
                 },
             }
         }
-        return ex_list[0..ex_pos];
+        return try std.heap.page_allocator.dupe(ExtensionList, ex_list[0..ex_pos]);
+    }
+
+    pub fn toBytes(self: ExtensionList) ![]u8 {
+        var buf: [128]u8 = undefined;
+        var buf_pos: usize = 0;
+        buf[buf_pos] = @intCast((@intFromEnum(self) & 0xFF00) >> 8);
+        buf[buf_pos + 1] = @intCast(@intFromEnum(self) & 0x00FF);
+        buf_pos += 2;
+        switch (self) {
+            .server_name => |e| {
+                buf[buf_pos] = @intCast((e.len & 0xFF00) >> 8);
+                buf[buf_pos + 1] = @intCast(e.len & 0x00FF);
+                buf_pos += 2;
+                @memcpy(buf[buf_pos..e.len], e);
+                buf_pos += e.len;
+            },
+            .supported_groups => |e| {
+                buf[buf_pos] = @intCast((e.len & 0xFF00) >> 8);
+                buf[buf_pos + 1] = @intCast(e.len & 0x00FF);
+                buf_pos += 2;
+                for (e) |v| {
+                    buf[buf_pos] = @intCast((@intFromEnum(v) & 0xFF00) >> 8);
+                    buf[buf_pos + 1] = @intCast(@intFromEnum(v) & 0x00FF);
+                    buf_pos += 2;
+                }
+            },
+            .signature_algorithms => |e| {
+                buf[buf_pos] = @intCast((e.len & 0xFF00) >> 8);
+                buf[buf_pos + 1] = @intCast(e.len & 0x00FF);
+                buf_pos += 2;
+                for (e) |v| {
+                    buf[buf_pos] = @intCast((@intFromEnum(v) & 0xFF00) >> 8);
+                    buf[buf_pos + 1] = @intCast(@intFromEnum(v) & 0x00FF);
+                    buf_pos += 2;
+                }
+            },
+            .supported_versions => |e| {
+                buf[buf_pos] = 0x00;
+                buf[buf_pos + 1] = 0x02;
+                buf_pos += 2;
+                for (e) |v| {
+                    buf[buf_pos] = @intCast((@intFromEnum(v) & 0xFF00) >> 8);
+                    buf[buf_pos + 1] = @intCast(@intFromEnum(v) & 0x00FF);
+                    buf_pos += 2;
+                }
+            },
+            .key_share => |e| {
+                buf[buf_pos] = @intCast(((4 + e.key_exchange.len) & 0xFF00) >> 8);
+                buf[buf_pos + 1] = @intCast((4 + e.key_exchange.len) & 0x00FF);
+                buf_pos += 2;
+                buf[buf_pos] = @intCast((@intFromEnum(e.group) & 0xFF00) >> 8);
+                buf[buf_pos + 1] = @intCast(@intFromEnum(e.group) & 0x00FF);
+                buf_pos += 2;
+                buf[buf_pos] = @intCast((e.key_exchange.len & 0xFF00) >> 8);
+                buf[buf_pos + 1] = @intCast(e.key_exchange.len & 0x00FF);
+                buf_pos += 2;
+                @memcpy(buf[buf_pos .. buf_pos + e.key_exchange.len], &e.key_exchange);
+                buf_pos += e.key_exchange.len;
+            },
+            else => unreachable,
+        }
+        return try std.heap.page_allocator.dupe(u8, buf[0..buf_pos]);
     }
 };
+
+test "parse extension fields" {
+    var version = [_]tls.ProtocolVersion{.tls_1_3};
+    var supported_versions = ExtensionList{ .supported_versions = &version };
+    var expect_version_byte = [_]u8{ 0x00, 0x2B, 0x00, 0x02, 0x03, 0x04 };
+    try std.testing.expectEqualSlices(u8, expect_version_byte[0..], try supported_versions.toBytes());
+
+    var key_exchange: [32]u8 = undefined;
+    std.crypto.random.bytes(&key_exchange);
+    const _key_share = ExtensionList.KeyShare{ .group = tls.NamedGroup.x25519, .key_exchange = key_exchange };
+    const key_share = ExtensionList{ .key_share = _key_share };
+    var expect_key_share: [40]u8 = undefined;
+    @memcpy(expect_key_share[0..4], &[_]u8{ 0x00, 0x33, 0x00, 0x24 });
+    expect_key_share[4] = @intCast((@intFromEnum(_key_share.group) & 0xFF00) >> 8);
+    expect_key_share[5] = @intCast((@intFromEnum(_key_share.group) & 0x00FF));
+    expect_key_share[6] = @intCast((key_exchange.len & 0xFF00) >> 8);
+    expect_key_share[7] = @intCast((key_exchange.len & 0x00FF));
+    @memcpy(expect_key_share[8 .. 8 + 32], &key_exchange);
+    try std.testing.expectEqualSlices(u8, &expect_key_share, try key_share.toBytes());
+}

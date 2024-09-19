@@ -73,7 +73,7 @@ pub const ServerHello = struct {
     legacy_compression_methods: legacyCompressionMethods = legacyCompressionMethods{},
     extensions: []ExtensionList,
 
-    const support_suites = [_]std.crypto.tls.CipherSuite{ .AES_256_GCM_SHA384, .AES_128_GCM_SHA256 };
+    const support_suites = [_]tls.CipherSuite{ .AES_256_GCM_SHA384, .AES_128_GCM_SHA256 };
 
     pub fn init(ch: ClientHello) !ServerHello {
         var random: [32]u8 = undefined;
@@ -90,8 +90,8 @@ pub const ServerHello = struct {
         const key_pair = try std.crypto.dh.X25519.KeyPair.create(secret_key);
         var ex_list: [32]ExtensionList = undefined;
         var ex_pos: usize = 0;
-        var version = [_]tls.ProtocolVersion{.tls_1_3};
-        ex_list[ex_pos] = ExtensionList{ .supported_versions = &version };
+        var version = [_]tls.ProtocolVersion{tls.ProtocolVersion.tls_1_3};
+        ex_list[ex_pos] = ExtensionList{ .supported_versions = try std.heap.page_allocator.dupe(tls.ProtocolVersion, &version) };
         ex_pos += 1;
         ex_list[ex_pos] = ExtensionList{ .key_share = .{ .group = tls.NamedGroup.x25519, .key_exchange = key_pair.public_key } };
         ex_pos += 1;
@@ -104,10 +104,69 @@ pub const ServerHello = struct {
         };
     }
 
-    pub fn toBytes(self: *ServerHello) ![]u8 {
+    pub fn toBytes(self: *const ServerHello) ![]u8 {
         var header: [5]u8 = undefined;
         header[0] = @intFromEnum(tls.ContentType.handshake);
         const version = @intFromEnum(self.version);
+        header[1] = @intCast((version & 0xFF00) >> 8);
+        header[2] = @intCast(version & 0x00FF);
+        const content = parse: {
+            var buf: [256]u8 = undefined;
+            var buf_pos: usize = 0;
+            buf[buf_pos] = @intCast((version & 0xFF00) >> 8);
+            buf[buf_pos + 1] = @intCast(version & 0x00FF);
+            buf_pos += 2;
+            @memcpy(buf[buf_pos .. buf_pos + 32], &self.random);
+            buf_pos += 32;
+            buf[buf_pos] = self.legacy_session_id_echo.length;
+            buf_pos += 1;
+            @memcpy(buf[buf_pos .. buf_pos + self.legacy_session_id_echo.length], &self.legacy_session_id_echo.session_id);
+            buf_pos += self.legacy_session_id_echo.length;
+            const suite = @intFromEnum(self.cipher_suite);
+            buf[buf_pos] = @intCast((suite & 0xFF00) >> 8);
+            buf_pos += 1;
+            buf[buf_pos] = @intCast(suite & 0x00FF);
+            buf_pos += 1;
+            buf[buf_pos] = 0x00; // compression method: null
+            buf_pos += 1;
+            break :parse buf[0..buf_pos];
+        };
+
+        const extensions = parse: {
+            var buf: [256]u8 = undefined;
+            var buf_pos: usize = 0;
+            for (self.extensions) |ex| {
+                const e = try ex.toBytes();
+                @memcpy(buf[buf_pos .. buf_pos + e.len], e);
+                buf_pos += e.len;
+            }
+            break :parse buf[0..buf_pos];
+        };
+
+        var sh: [1024 * 4]u8 = undefined;
+        var sh_pos: usize = 0;
+        @memcpy(sh[0..3], header[0..3]);
+        sh_pos += 3;
+        sh[sh_pos] = @intCast(((1 + 3 + 2 + content.len + extensions.len) & 0xFF00) >> 8);
+        sh[sh_pos + 1] = @intCast((1 + 3 + 2 + content.len + extensions.len) & 0x00FF);
+        sh_pos += 2;
+        sh[sh_pos] = @intFromEnum(tls.HandshakeType.server_hello);
+        sh_pos += 1;
+        sh[sh_pos] = @intCast(((content.len + extensions.len) & 0xFF0000) >> 16);
+        sh[sh_pos + 1] = @intCast(((content.len + extensions.len) & 0x00FF00) >> 16);
+        sh[sh_pos + 2] = @intCast((content.len + extensions.len) & 0x0000FF);
+        sh_pos += 3;
+
+        @memcpy(sh[sh_pos .. sh_pos + content.len], content);
+        sh_pos += content.len;
+
+        sh[sh_pos] = @intCast(((extensions.len) & 0xFF00) >> 8);
+        sh[sh_pos + 1] = @intCast((extensions.len) & 0x00FF);
+        sh_pos += 2;
+
+        @memcpy(sh[sh_pos .. sh_pos + extensions.len], extensions);
+        sh_pos += extensions.len;
+        return try std.heap.page_allocator.dupe(u8, sh[0..sh_pos]);
     }
 };
 

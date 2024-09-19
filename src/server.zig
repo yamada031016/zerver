@@ -91,11 +91,11 @@ pub const HTTPServer = struct {
 
             recv_total += recv_len;
             const TLSRecordLayer = @import("tls/tls.zig").TLSRecordLayer;
-            const record = try TLSRecordLayer.parse(recv_buf[0..recv_total]);
+            const record = try TLSRecordLayer.fromBytes(recv_buf[0..recv_total]);
             const server_hello = try @import("tls/handshake/ServerHello.zig").ServerHello.init(record.data.client_hello.message);
-            std.debug.print("sh:{any}\n", .{server_hello});
+
             const rawsh = try server_hello.toBytes();
-            std.debug.print("rawsh:{any}\n", .{rawsh});
+            try stream.writer().writeAll(rawsh);
 
             if (mem.containsAtLeast(u8, recv_buf[0..recv_total], 1, "\r\n\r\n"))
                 break;

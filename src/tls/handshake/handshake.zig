@@ -25,15 +25,15 @@ pub const Handshake = union(HandshakeType) {
 
     const ClientHandshake = struct {
         handshake_type: HandshakeType,
-        length: [3]u8,
+        length: ?[3]u8 = null,
         message: ClientHello,
     };
     const ServerHandshake = struct {
         handshake_type: HandshakeType,
-        length: [3]u8,
+        length: ?[3]u8 = null,
         message: ServerHello,
     };
-    pub fn parse(data: []u8) !Handshake {
+    pub fn fromBytes(data: []u8) !Handshake {
         const handshake_type: HandshakeType = @enumFromInt(data[0]);
         const length = [_]u8{ data[1], data[2], data[3] };
         switch (handshake_type) {
@@ -62,14 +62,12 @@ pub const Handshake = union(HandshakeType) {
             .client_hello => {
                 return Handshake{ .client_hello = .{
                     .handshake_type = handshake_type,
-                    .length = data.len,
                     .message = data,
                 } };
             },
             .server_hello => {
                 return Handshake{ .server_hello = .{
                     .handshake_type = handshake_type,
-                    .length = data.len,
                     .message = data,
                 } };
             },

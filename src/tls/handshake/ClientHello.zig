@@ -21,7 +21,6 @@ pub const RawClientHello = extern struct {
     pub fn parse(data: []u8) !RawClientHello {
         var data_pos: usize = 0;
         const version = Version.parse(data, data_pos);
-        std.debug.print("version: {x:0>2}{x:0>2}.\n", .{ data[0], data[1] });
         data_pos += 2;
 
         const random = getRandom: {
@@ -33,7 +32,6 @@ pub const RawClientHello = extern struct {
 
         const legacy_session_id = LegacySessionId.parse(data, data_pos);
         data_pos += 1 + legacy_session_id.length;
-        std.debug.print("session_id: {any} len({}).\n", .{ legacy_session_id.session_id, legacy_session_id.length });
 
         const cipher_suite = CipherSuite.parse(data, data_pos);
         data_pos += 2 + cipher_suite.count;
@@ -41,7 +39,6 @@ pub const RawClientHello = extern struct {
         const legacy_compression_methods_length = data[data_pos];
         data_pos += 1;
         if (legacy_compression_methods_length == 0x01 and data[data_pos] != 0x00) {
-            std.debug.print("invalid legacy_compression_methods: {}\n", .{data[data_pos]});
             return TLSHandshakeError.IllegalParameter;
         }
         data_pos += 1;
@@ -73,7 +70,6 @@ pub const ClientHello = struct {
             const tmp = (@as(u16, @intCast(data[data_pos])) << 8) + @as(u16, data[data_pos + 1]);
             break :parse @as(std.crypto.tls.ProtocolVersion, @enumFromInt(tmp));
         };
-        std.debug.print("version: {any}.\n", .{version});
         data_pos += 2;
 
         const random = getRandom: {
@@ -85,7 +81,6 @@ pub const ClientHello = struct {
 
         const legacy_session_id = LegacySessionId.parse(data, data_pos);
         data_pos += 1 + legacy_session_id.length;
-        std.debug.print("session_id: {any} len({}).\n", .{ legacy_session_id.session_id, legacy_session_id.length });
 
         const cipher_suite = parse: {
             const cipher_suites_count: u16 = (@as(u16, @intCast(data[data_pos])) << 8) + @as(u16, data[data_pos + 1]);
@@ -95,7 +90,6 @@ pub const ClientHello = struct {
             for (0..cipher_suites_count / 2) |i| {
                 const tmp = (@as(u16, @intCast(data[data_pos])) << 8) + @as(u16, data[data_pos + 1]);
                 _cipher_suites[i] = @as(std.crypto.tls.CipherSuite, @enumFromInt(tmp));
-                std.debug.print("cipher suites: {any}\n", .{_cipher_suites[i]});
                 data_pos += 2;
             }
             break :parse _cipher_suites[0 .. cipher_suites_count / 2];
@@ -104,7 +98,6 @@ pub const ClientHello = struct {
         const legacy_compression_methods_length = data[data_pos];
         data_pos += 1;
         if (legacy_compression_methods_length == 0x01 and data[data_pos] != 0x00) {
-            std.debug.print("invalid legacy_compression_methods: {}\n", .{data[data_pos]});
             return TLSHandshakeError.IllegalParameter;
         }
         data_pos += 1;

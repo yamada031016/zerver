@@ -1,6 +1,6 @@
 const std = @import("std");
 const tls = std.crypto.tls;
-const handshake = @import("handshake.zig");
+const handshake = @import("content.zig");
 const TLSHandshakeError = handshake.TLSHandshakeError;
 const helloFields = @import("helloFields.zig");
 const Version = helloFields.Version;

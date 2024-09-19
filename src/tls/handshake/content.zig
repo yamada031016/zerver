@@ -1,4 +1,5 @@
 const std = @import("std");
+const tls = std.crypto.tls;
 const ch = @import("ClientHello.zig");
 const ClientHello = ch.ClientHello;
 const sh = @import("ServerHello.zig");
@@ -73,5 +74,28 @@ pub const Handshake = union(HandshakeType) {
             },
             else => unreachable,
         }
+    }
+};
+
+/// It is dummy packet for compatibility.
+pub const ChangeCipherSpec = struct {
+    message: u8 = 1,
+
+    pub fn toBytes(self: *const ChangeCipherSpec) ![]u8 {
+        var header: [5]u8 = undefined;
+        header[0] = @intFromEnum(tls.ContentType.change_cipher_spec);
+        const version = @intFromEnum(tls.ProtocolVersion.tls_1_2);
+        header[1] = @intCast((version & 0xFF00) >> 8);
+        header[2] = @intCast(version & 0x00FF);
+        var packet: [1024 * 4]u8 = undefined;
+        var packet_pos: usize = 0;
+        @memcpy(packet[0..3], header[0..3]);
+        packet_pos += 3;
+
+        packet[packet_pos] = 1; // len
+        packet[packet_pos + 1] = self.message;
+        packet_pos += 2;
+
+        return try std.heap.page_allocator.dupe(u8, packet[0..packet_pos]);
     }
 };

@@ -2,7 +2,7 @@ const std = @import("std");
 const tls = std.crypto.tls;
 const HandshakeType = std.crypto.tls.HandshakeType;
 const ContentType = std.crypto.tls.ContentType;
-const Handshake = @import("handshake/handshake.zig").Handshake;
+const Handshake = @import("handshake/content.zig").Handshake;
 
 pub const TLSRecordLayer = struct {
     content_type: ContentType,

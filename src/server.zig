@@ -98,6 +98,7 @@ pub const HTTPServer = struct {
             const rawsh = try server_hello.toBytes();
             const rawccs = try change_cipher_spec.toBytes();
             const packet = try std.mem.concat(std.heap.page_allocator, u8, &[_][]u8{ rawsh, rawccs });
+            std.debug.print("{any}\n", .{packet});
             try stream.writer().writeAll(packet);
 
             if (mem.containsAtLeast(u8, recv_buf[0..recv_total], 1, "\r\n\r\n"))

@@ -92,9 +92,11 @@ pub const ChangeCipherSpec = struct {
         @memcpy(packet[0..3], header[0..3]);
         packet_pos += 3;
 
-        packet[packet_pos] = 1; // len
-        packet[packet_pos + 1] = self.message;
+        packet[packet_pos] = 0x0; // len
+        packet[packet_pos + 1] = 0x1; // len
         packet_pos += 2;
+        packet[packet_pos] = self.message;
+        packet_pos += 1;
 
         return try std.heap.page_allocator.dupe(u8, packet[0..packet_pos]);
     }

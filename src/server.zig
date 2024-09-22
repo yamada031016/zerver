@@ -90,16 +90,16 @@ pub const HTTPServer = struct {
                 return ServeFileError.RecvHeaderEOF;
 
             recv_total += recv_len;
-            const TLSRecordLayer = @import("tls/tls.zig").TLSRecordLayer;
-            const record = try TLSRecordLayer.fromBytes(recv_buf[0..recv_total]);
-            const server_hello = try @import("tls/handshake/ServerHello.zig").ServerHello.init(record.data.client_hello.message);
-            const change_cipher_spec = @import("tls/handshake/content.zig").ChangeCipherSpec{};
-
-            const rawsh = try server_hello.toBytes();
-            const rawccs = try change_cipher_spec.toBytes();
-            const packet = try std.mem.concat(std.heap.page_allocator, u8, &[_][]u8{ rawsh, rawccs });
-            std.debug.print("{any}\n", .{packet});
-            try stream.writer().writeAll(packet);
+            // const TLSRecordLayer = @import("tls/tls.zig").TLSRecordLayer;
+            // const record = try TLSRecordLayer.fromBytes(recv_buf[0..recv_total]);
+            // const server_hello = try @import("tls/handshake/ServerHello.zig").ServerHello.init(record.data.client_hello.message);
+            // const change_cipher_spec = @import("tls/handshake/content.zig").ChangeCipherSpec{};
+            //
+            // const rawsh = try server_hello.toBytes();
+            // const rawccs = try change_cipher_spec.toBytes();
+            // const packet = try std.mem.concat(std.heap.page_allocator, u8, &[_][]u8{ rawsh, rawccs });
+            // std.debug.print("{any}\n", .{packet});
+            // try stream.writer().writeAll(packet);
 
             if (mem.containsAtLeast(u8, recv_buf[0..recv_total], 1, "\r\n\r\n"))
                 break;

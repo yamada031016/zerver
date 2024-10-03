@@ -56,24 +56,15 @@ pub const HTTPServer = struct {
     pub fn serve(self: *HTTPServer) !noreturn {
         log.info("listening on {s}:{}\npress Ctrl-C to quit...\n", .{ self_ipaddr, self_port_addr });
         while (self.listener.accept()) |conn| {
-            const fork_pid = try std.posix.fork();
-            if (fork_pid == 0) {
-                // child process
-                log.debug("Accepted Connection from: {}", .{conn.address});
-                self.handleStream(@constCast(&conn.stream)) catch |err| {
-                    if (@errorReturnTrace()) |bt| {
-                        log.err("Failed to serve client: {}: {}", .{ err, bt });
-                    } else {
-                        log.err("Failed to serve client: {}", .{err});
-                    }
-                };
-            } else {
-                // parent process
-                const wait_result = std.posix.waitpid(fork_pid, 0);
-                if (wait_result.status != 0) {
-                    log.err("終了コード: {}\n", .{wait_result.status});
+            // child process
+            log.debug("Accepted Connection from: {}", .{conn.address});
+            self.handleStream(@constCast(&conn.stream)) catch |err| {
+                if (@errorReturnTrace()) |bt| {
+                    log.err("Failed to serve client: {}: {}", .{ err, bt });
+                } else {
+                    log.err("Failed to serve client: {}", .{err});
                 }
-            }
+            };
             conn.stream.close();
         } else |err| {
             log.err("Failed to accept connection: {}", .{err});

@@ -20,6 +20,7 @@ fn cmp(context: void, a: Request, b: Request) std.math.Order {
 pub const HTTPServer = struct {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
+    var stdout = std.io.getStdOut().writer();
 
     var self_port_addr: u16 = undefined;
     var self_ipaddr: []const u8 = undefined;
@@ -65,7 +66,8 @@ pub const HTTPServer = struct {
     }
 
     pub fn serve(self: *HTTPServer) !noreturn {
-        log.info("listening on {s}:{}\npress Ctrl-C to quit...\n", .{ self_ipaddr, self_port_addr });
+        const uri = try std.fmt.allocPrint(std.heap.page_allocator, "http://{s}:{}", .{ self_ipaddr, self_port_addr });
+        try stdout.print("listening on \x1B]8;;{s}\x1B\\{s}\x1B]8;;\x1B\\\npress Ctrl-C to quit...\n", .{ uri, uri });
         while (self.listener.accept()) |conn| {
             log.debug("Accepted Connection from: {}", .{conn.address});
             self.handleStream(@constCast(&conn.stream)) catch |err| {
@@ -201,14 +203,15 @@ pub const HTTPServer = struct {
             \\Connection: close
             \\Content-Type: {s}
             \\Content-Length: {}
+            \\Content-Encoding: {s}
             \\
             \\
         ;
 
         const mime = Mime.asMime(file);
 
-        log.debug(" >>>\n" ++ http_head, .{ mime.asText(), file_len });
-        try stream.writer().print(http_head, .{ mime.asText(), file_len });
+        log.debug(" >>>\n" ++ http_head, .{ mime.asText(), file_len, "gzip" });
+        try stream.writer().print(http_head, .{ mime.asText(), file_len, "gzip" });
 
         var send_total: usize = 0;
         var send_len: usize = 0;
@@ -217,7 +220,7 @@ pub const HTTPServer = struct {
             send_len = try body_file.read(&buf);
             if (send_len == 0)
                 break;
-            try stream.writer().writeAll(buf[0..send_len]);
+            try stream.writer().writeAll(try self.compress(buf[0..send_len]));
 
             send_total += send_len;
         }
@@ -225,6 +228,13 @@ pub const HTTPServer = struct {
 
     pub fn getPortNumber(_: *HTTPServer) u16 {
         return self_port_addr;
+    }
+
+    fn compress(_: *HTTPServer, content: []u8) ![]const u8 {
+        var compressed = std.ArrayList(u8).init(std.heap.page_allocator);
+        var buf = std.io.fixedBufferStream(content);
+        try std.compress.gzip.compress(buf.reader(), compressed.writer(), .{ .level = .fast }); // .fast equal .level4 at this time.
+        return try compressed.toOwnedSlice();
     }
 };
 

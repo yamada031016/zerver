@@ -6,6 +6,17 @@ const log = std.log;
 
 const Mime = @import("mime.zig").Mime;
 
+// these are to be used with the async/await functions.
+const Request = struct {
+    frame: anyframe,
+    recieve: std.time.timestamp(),
+};
+var timer_queue: std.PriorityQueue(Request, void, cmp) = undefined;
+fn cmp(context: void, a: Request, b: Request) std.math.Order {
+    _ = context;
+    return std.math.order(a.recieve, b.recieve);
+}
+
 pub const HTTPServer = struct {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
@@ -56,7 +67,6 @@ pub const HTTPServer = struct {
     pub fn serve(self: *HTTPServer) !noreturn {
         log.info("listening on {s}:{}\npress Ctrl-C to quit...\n", .{ self_ipaddr, self_port_addr });
         while (self.listener.accept()) |conn| {
-            // child process
             log.debug("Accepted Connection from: {}", .{conn.address});
             self.handleStream(@constCast(&conn.stream)) catch |err| {
                 if (@errorReturnTrace()) |bt| {

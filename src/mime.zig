@@ -12,6 +12,7 @@ pub const Mime = enum {
     tar,
     other,
 
+    // zig fmt: off
     pub fn asMime(filePath: []const u8) Mime {
         const file_ext = extractFileExtension(filePath);
         return
@@ -26,6 +27,7 @@ pub const Mime = enum {
             else if (std.mem.eql(u8, file_ext, ".tar")) .tar
             else unreachable;
     }
+// zig fmt: on
     pub fn asText(self: *const Mime) []const u8 {
         return switch (self.*) {
             .html => "text/html",
@@ -40,8 +42,14 @@ pub const Mime = enum {
             .other => "text/plain",
         };
     }
+    pub fn shouldCompress(self: *const Mime) bool {
+        switch (self.*) {
+            .html, .css, .map, .js => return true,
+            .svg, .jpg, .png, .wasm, .tar, .other => return false,
+        }
+    }
 
-    fn extractFileExtension(filePath:[]const u8) []const u8 {
+    fn extractFileExtension(filePath: []const u8) []const u8 {
         var file_ext = std.fs.path.extension(filePath);
         if (file_ext.len == 0) {
             // /hogeのとき.htmlを補完する

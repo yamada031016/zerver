@@ -198,20 +198,34 @@ pub const HTTPServer = struct {
 
         const file_len = try body_file.getEndPos();
 
-        const http_head =
-            \\HTTP/1.1 200 OK
-            \\Connection: close
-            \\Content-Type: {s}
-            \\Content-Length: {}
-            \\Content-Encoding: {s}
-            \\
-            \\
-        ;
-
         const mime = Mime.asMime(file);
+        const shouldCompress = mime.shouldCompress();
 
-        log.debug(" >>>\n" ++ http_head, .{ mime.asText(), file_len, "gzip" });
-        try stream.writer().print(http_head, .{ mime.asText(), file_len, "gzip" });
+        if (shouldCompress) {
+            const http_head =
+                \\HTTP/1.1 200 OK
+                \\Connection: close
+                \\Content-Type: {s}
+                \\Content-Length: {}
+                \\Content-Encoding: {s}
+                \\
+                \\
+            ;
+
+            log.debug(" >>>\n" ++ http_head, .{ mime.asText(), file_len, "gzip" });
+            try stream.writer().print(http_head, .{ mime.asText(), file_len, "gzip" });
+        } else {
+            const http_head =
+                \\HTTP/1.1 200 OK
+                \\Connection: close
+                \\Content-Type: {s}
+                \\Content-Length: {}
+                \\
+                \\
+            ;
+            log.debug(" >>>\n" ++ http_head, .{ mime.asText(), file_len });
+            try stream.writer().print(http_head, .{ mime.asText(), file_len });
+        }
 
         var send_total: usize = 0;
         var send_len: usize = 0;
@@ -220,7 +234,11 @@ pub const HTTPServer = struct {
             send_len = try body_file.read(&buf);
             if (send_len == 0)
                 break;
-            try stream.writer().writeAll(try self.compress(buf[0..send_len]));
+            if (shouldCompress) {
+                try stream.writer().writeAll(try self.compress(buf[0..send_len]));
+            } else {
+                try stream.writer().writeAll((buf[0..send_len]));
+            }
 
             send_total += send_len;
         }
@@ -233,7 +251,7 @@ pub const HTTPServer = struct {
     fn compress(_: *HTTPServer, content: []u8) ![]const u8 {
         var compressed = std.ArrayList(u8).init(std.heap.page_allocator);
         var buf = std.io.fixedBufferStream(content);
-        try std.compress.gzip.compress(buf.reader(), compressed.writer(), .{ .level = .fast }); // .fast equal .level4 at this time.
+        try std.compress.gzip.compress(buf.reader(), compressed.writer(), .{ .level = .level_9 }); // .fast equal .level4 at this time.
         return try compressed.toOwnedSlice();
     }
 };

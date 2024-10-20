@@ -43,10 +43,12 @@ pub const Mime = enum {
         };
     }
     pub fn shouldCompress(self: *const Mime) bool {
-        switch (self.*) {
-            .html, .css, .map, .js => return true,
-            .svg, .jpg, .png, .wasm, .tar, .other => return false,
-        }
+        _ = self;
+        return false;
+        // switch (self.*) {
+        //     .html, .css, .map, .js => return true,
+        //     .svg, .jpg, .png, .wasm, .tar, .other => return false,
+        // }
     }
 
     fn extractFileExtension(filePath: []const u8) []const u8 {

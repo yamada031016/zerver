@@ -235,9 +235,9 @@ pub const HTTPServer = struct {
             if (send_len == 0)
                 break;
             if (shouldCompress) {
-                try stream.writer().writeAll(try self.compress(buf[0..send_len]));
+                try stream.writer().writeAll(try self.compress(buf[send_total .. send_total + send_len]));
             } else {
-                try stream.writer().writeAll((buf[0..send_len]));
+                try stream.writer().writeAll((buf[send_total .. send_total + send_len]));
             }
 
             send_total += send_len;

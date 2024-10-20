@@ -14,18 +14,18 @@ pub fn main() !void {
     var server = try HTTPServer.init(public_path, ip_addr, port_addr);
     defer server.deinit();
 
-    var act = std.posix.Sigaction{
-        .handler = .{
-            .handler = struct {
-                fn wrapper(_: c_int) callconv(.C) void {
-                    std.process.exit(0);
-                }
-            }.wrapper,
-        },
-        .mask = std.posix.empty_sigset,
-        .flags = 0,
-    };
-    try std.posix.sigaction(std.posix.SIG.INT, &act, null);
+    // var act = std.posix.Sigaction{
+    //     .handler = .{
+    //         .handler = struct {
+    //             fn wrapper(_: c_int) callconv(.C) void {
+    //                 std.process.exit(0);
+    //             }
+    //         }.wrapper,
+    //     },
+    //     .mask = std.posix.empty_sigset,
+    //     .flags = 0,
+    // };
+    // try std.posix.sigaction(std.posix.SIG.INT, &act, null);
 
     try server.serve();
 }

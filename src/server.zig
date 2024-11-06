@@ -65,12 +65,12 @@ pub const HTTPServer = struct {
         _ = gpa.deinit();
     }
 
-    pub fn serve(self: *HTTPServer) !noreturn {
+    pub fn serve(self: @This()) !noreturn {
         const uri = try std.fmt.allocPrint(std.heap.page_allocator, "http://{s}:{}", .{ self_ipaddr, self_port_addr });
         try stdout.print("listening on \x1B]8;;{s}\x1B\\{s}\x1B]8;;\x1B\\\npress Ctrl-C to quit...\n", .{ uri, uri });
-        while (self.listener.accept()) |conn| {
+        while (@constCast(&self.listener).accept()) |conn| {
             log.debug("Accepted Connection from: {}", .{conn.address});
-            self.handleStream(@constCast(&conn.stream)) catch |err| {
+            @constCast(&self).handleStream(@constCast(&conn.stream)) catch |err| {
                 if (@errorReturnTrace()) |bt| {
                     log.err("Failed to serve client: {}: {}", .{ err, bt });
                 } else {

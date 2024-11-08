@@ -41,15 +41,17 @@ pub const Mime = enum {
             .wasm => "application/wasm",
             .js => "text/javascript",
             .tar => "application/x-tar",
-            .tar => "application/pdf",
+            .pdf => "application/pdf",
             .other => "text/plain",
         };
     }
     pub fn shouldCompress(self: *const Mime) bool {
-        switch (self.*) {
-            .html, .css, .map, .js => return true,
-            .svg, .jpg, .png, .wasm, .tar, .other => return false,
-        }
+        _ = self;
+        return false;
+        // switch (self.*) {
+        //     .html, .css, .map, .js => return true,
+        //     .svg, .jpg, .png, .wasm, .tar, .pdf, .other => return false,
+        // }
     }
 
     fn extractFileExtension(filePath: []const u8) []const u8 {

@@ -205,7 +205,7 @@ pub const HTTPServer = struct {
             const http_head =
                 \\HTTP/1.1 200 OK
                 \\Connection: close
-                \\Content-Type: {s}
+                \\Content-Type: {s};charset=utf-8
                 \\Content-Length: {}
                 \\Content-Encoding: {s}
                 \\
@@ -233,7 +233,8 @@ pub const HTTPServer = struct {
             var buf: [1024 * 10]u8 = undefined;
             send_len = try body_file.read(&buf);
             if (shouldCompress) {
-                try stream.writer().writeAll(try self.compress(buf[send_total .. send_total + send_len]));
+                std.debug.print("hogehoge", .{});
+                try stream.writer().writeAll(try self.compress(buf[0 .. 0 + send_len]));
             } else {
                 try stream.writer().writeAll((buf[0..send_len]));
             }

@@ -10,6 +10,7 @@ pub const Mime = enum {
     wasm,
     js,
     tar,
+    pdf,
     other,
 
     // zig fmt: off
@@ -25,6 +26,7 @@ pub const Mime = enum {
             else if (std.mem.eql(u8, file_ext, ".wasm")) .wasm
             else if (std.mem.eql(u8, file_ext, ".js")) .js
             else if (std.mem.eql(u8, file_ext, ".tar")) .tar
+            else if (std.mem.eql(u8, file_ext, ".pdf")) .pdf
             else unreachable;
     }
 // zig fmt: on
@@ -39,16 +41,15 @@ pub const Mime = enum {
             .wasm => "application/wasm",
             .js => "text/javascript",
             .tar => "application/x-tar",
+            .tar => "application/pdf",
             .other => "text/plain",
         };
     }
     pub fn shouldCompress(self: *const Mime) bool {
-        _ = self;
-        return false;
-        // switch (self.*) {
-        //     .html, .css, .map, .js => return true,
-        //     .svg, .jpg, .png, .wasm, .tar, .other => return false,
-        // }
+        switch (self.*) {
+            .html, .css, .map, .js => return true,
+            .svg, .jpg, .png, .wasm, .tar, .other => return false,
+        }
     }
 
     fn extractFileExtension(filePath: []const u8) []const u8 {

@@ -230,16 +230,16 @@ pub const HTTPServer = struct {
         var send_total: usize = 0;
         var send_len: usize = 0;
         while (true) {
-            var buf: [2048 * 5]u8 = undefined;
+            var buf: [1024 * 10]u8 = undefined;
             send_len = try body_file.read(&buf);
-            if (send_len == 0)
-                break;
             if (shouldCompress) {
                 try stream.writer().writeAll(try self.compress(buf[send_total .. send_total + send_len]));
             } else {
-                try stream.writer().writeAll((buf[send_total .. send_total + send_len]));
+                try stream.writer().writeAll((buf[0..send_len]));
             }
 
+            if (send_len < buf.len)
+                break;
             send_total += send_len;
         }
     }

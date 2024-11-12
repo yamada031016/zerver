@@ -176,14 +176,8 @@ pub const HTTPServer = struct {
         return try std.heap.page_allocator.dupe(u8, tmp_fileName);
     }
 
-    fn sendFile(self: *HTTPServer, stream: *net.Stream, fileName: []const u8) !void {
-        const file = try self.complementFileName(fileName);
-
-        // log.debug("Opening {s}\n", .{file});
-        // std.debug.print("hoge: {s}\n", .{file});
-
-        // openFile()に渡す引数fileはなぜか""で上書きされて返ってくる...?
-        var body_file = self.dir.openFile(file, .{}) catch {
+    fn openFile(self: *HTTPServer, stream: *net.Stream, filename: []const u8) ![]u8 {
+        var body_file = self.dir.openFile(filename, .{}) catch {
             try stream.writeAll(
                 \\HTTP/1.1 404 Not Found
                 \\Connection: close
@@ -195,25 +189,59 @@ pub const HTTPServer = struct {
             return ServeFileError.FileNotFound;
         };
         defer body_file.close();
-
         const file_len = try body_file.getEndPos();
+        const buf = try allocator.alloc(u8, file_len);
+        defer allocator.free(buf);
+        _ = try body_file.readAll(buf);
 
-        const mime = Mime.asMime(file);
+        const mime = Mime.asMime(filename);
+        if (mime.shouldCompress()) {
+            const compressed_file = try self.compress(buf);
+            return @constCast(compressed_file);
+        } else {
+            return try allocator.dupe(u8, buf);
+        }
+    }
+
+    fn sendFile(self: *HTTPServer, stream: *net.Stream, fileName: []const u8) !void {
+        const fullFileName = try self.complementFileName(fileName);
+
+        // log.debug("Opening {s}\n", .{file});
+        // std.debug.print("hoge: {s}\n", .{file});
+
+        // openFile()に渡す引数fileはなぜか""で上書きされて返ってくる...?
+        // var body_file = self.dir.openFile(file, .{}) catch {
+        //     try stream.writeAll(
+        //         \\HTTP/1.1 404 Not Found
+        //         \\Connection: close
+        //         \\Content-Type: text/html; charset=UTF-8
+        //         \\
+        //         \\
+        //         \\<h1>404 Not Found.</h1>
+        //     );
+        //     return ServeFileError.FileNotFound;
+        // };
+        // defer body_file.close();
+        //
+        // const file_len = try body_file.getEndPos();
+        const body_file = try self.openFile(stream, fullFileName);
+
+        const mime = Mime.asMime(fullFileName);
         const shouldCompress = mime.shouldCompress();
 
         if (shouldCompress) {
             const http_head =
                 \\HTTP/1.1 200 OK
                 \\Connection: close
-                \\Content-Type: {s};charset=utf-8
+                \\Content-Type: {s}
                 \\Content-Length: {}
                 \\Content-Encoding: {s}
                 \\
                 \\
             ;
 
-            log.debug(" >>>\n" ++ http_head, .{ mime.asText(), file_len, "gzip" });
-            try stream.writer().print(http_head, .{ mime.asText(), file_len, "gzip" });
+            log.debug(" >>>\n" ++ http_head, .{ mime.asText(), body_file.len, "gzip" });
+            try stream.writer().print(http_head, .{ mime.asText(), body_file.len, "gzip" });
         } else {
             const http_head =
                 \\HTTP/1.1 200 OK
@@ -223,25 +251,22 @@ pub const HTTPServer = struct {
                 \\
                 \\
             ;
-            log.debug(" >>>\n" ++ http_head, .{ mime.asText(), file_len });
-            try stream.writer().print(http_head, .{ mime.asText(), file_len });
+            log.debug(" >>>\n" ++ http_head, .{ mime.asText(), body_file.len });
+            try stream.writer().print(http_head, .{ mime.asText(), body_file.len });
         }
 
         var send_total: usize = 0;
         var send_len: usize = 0;
+        var bufferStream = std.io.fixedBufferStream(body_file);
+        const reader = bufferStream.reader();
         while (true) {
             var buf: [1024 * 10]u8 = undefined;
-            send_len = try body_file.read(&buf);
-            if (shouldCompress) {
-                std.debug.print("hogehoge", .{});
-                try stream.writer().writeAll(try self.compress(buf[0 .. 0 + send_len]));
-            } else {
-                try stream.writer().writeAll((buf[0..send_len]));
-            }
+            send_len = try reader.read(&buf);
+            try stream.writer().writeAll(buf[send_total .. send_total + send_len]);
 
-            if (send_len < buf.len)
-                break;
             send_total += send_len;
+            if (body_file.len <= send_total)
+                break;
         }
     }
 
@@ -252,7 +277,7 @@ pub const HTTPServer = struct {
     fn compress(_: *HTTPServer, content: []u8) ![]const u8 {
         var compressed = std.ArrayList(u8).init(std.heap.page_allocator);
         var buf = std.io.fixedBufferStream(content);
-        try std.compress.gzip.compress(buf.reader(), compressed.writer(), .{ .level = .level_9 }); // .fast equal .level4 at this time.
+        try std.compress.gzip.compress(buf.reader(), compressed.writer(), .{ .level = .fast }); // .fast equal .level4 at this time.
         return try compressed.toOwnedSlice();
     }
 };

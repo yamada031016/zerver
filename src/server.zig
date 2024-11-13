@@ -50,7 +50,7 @@ pub const HTTPServer = struct {
             }
         };
 
-        var _server = .{
+        var _server = HTTPServer{
             .dir = dir,
             .listener = listener,
         };

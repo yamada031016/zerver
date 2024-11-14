@@ -65,7 +65,7 @@ pub const HTTPServer = struct {
         _ = gpa.deinit();
     }
 
-    pub fn serve(self: @This()) !noreturn {
+    pub fn serve(self: @This()) !void {
         const uri = try std.fmt.allocPrint(std.heap.page_allocator, "http://{s}:{}", .{ self_ipaddr, self_port_addr });
         try stdout.print("listening on \x1B]8;;{s}\x1B\\{s}\x1B]8;;\x1B\\\npress Ctrl-C to quit...\n", .{ uri, uri });
         while (@constCast(&self.listener).accept()) |conn| {

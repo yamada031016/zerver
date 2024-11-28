@@ -13,6 +13,7 @@ pub fn main() !void {
 pub const WebSocketManager = struct {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
+    var server: WebSocketServer = undefined;
 
     listener: std.net.Server,
 
@@ -48,6 +49,17 @@ pub const WebSocketManager = struct {
         } else |err| {
             return err;
         }
+    }
+    pub fn waitConnection2(self: *WebSocketManager) !void {
+        while (self.listener.accept()) |conn| {
+            std.log.info("Accepted Connection from: {}", .{conn.address});
+            server = try self.handleStream(@constCast(&conn.stream));
+        } else |err| {
+            return err;
+        }
+    }
+    pub fn reload(_: *WebSocketManager) !void {
+        server.sendReload();
     }
 
     fn handleStream(_: *WebSocketManager, stream: *std.net.Stream) !WebSocketServer {

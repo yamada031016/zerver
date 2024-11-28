@@ -196,7 +196,7 @@ pub const WebSocketServer = struct {
         res_buf[1] = res.len;
         @memcpy(res_buf[2 .. 2 + res.len], res[0..]);
         try self.stream.writer().writeAll(res_buf[0 .. 2 + res.len]);
-        self.deinit();
+        // self.deinit();
         std.log.debug("Reload!\n", .{});
         // const header = WebSocketFormat.init(res);
         // try self.stream.writer().writeStruct(header);

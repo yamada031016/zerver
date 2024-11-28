@@ -35,6 +35,7 @@ pub const WebSocketManager = struct {
                 }
             }
         };
+        std.log.err("ws port:{d}\n", .{self_port_addr});
         return .{
             .listener = listener,
         };
@@ -182,7 +183,7 @@ pub const WebSocketServer = struct {
         res_buf[1] = res.len;
         @memcpy(res_buf[2 .. 2 + res.len], res[0..]);
         try self.stream.writer().writeAll(res_buf[0 .. 2 + res.len]);
-        std.debug.print("Reload!\n", .{});
+        std.log.debug("Reload!\n", .{});
         // const header = WebSocketFormat.init(res);
         // try self.stream.writer().writeStruct(header);
         // std.debug.print("header:\n{}\n", .{header});

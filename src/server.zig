@@ -3,7 +3,7 @@ const net = std.net;
 const mem = std.mem;
 const fs = std.fs;
 const log = std.log;
-usingnamespace @import("websocket.zig");
+pub usingnamespace @import("websocket.zig");
 
 const Mime = @import("mime.zig").Mime;
 

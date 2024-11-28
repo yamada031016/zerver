@@ -101,6 +101,11 @@ pub const WebSocketServer = struct {
     stream: *std.net.Stream,
     key: []const u8,
 
+    fn deinit(self: *const WebSocketServer) void {
+        self.stream.deinit();
+        _ = gpa.deinit();
+    }
+
     pub fn readLoop(self: *const WebSocketServer) !void {
         std.debug.print("start WebSocket connection!\n", .{});
         var buf: [128]u8 = undefined;
@@ -184,6 +189,7 @@ pub const WebSocketServer = struct {
         @memcpy(res_buf[2 .. 2 + res.len], res[0..]);
         try self.stream.writer().writeAll(res_buf[0 .. 2 + res.len]);
         std.log.debug("Reload!\n", .{});
+        self.deinit();
         // const header = WebSocketFormat.init(res);
         // try self.stream.writer().writeStruct(header);
         // std.debug.print("header:\n{}\n", .{header});

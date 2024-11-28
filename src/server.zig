@@ -3,6 +3,7 @@ const net = std.net;
 const mem = std.mem;
 const fs = std.fs;
 const log = std.log;
+usingnamespace @import("websocket.zig");
 
 const Mime = @import("mime.zig").Mime;
 
@@ -262,7 +263,7 @@ pub const HTTPServer = struct {
         while (true) {
             var buf: [1024 * 10]u8 = undefined;
             send_len = try reader.read(&buf);
-            try stream.writer().writeAll(buf[send_total .. send_total + send_len]);
+            try stream.writer().writeAll(buf[0..send_len]);
 
             send_total += send_len;
             if (body_file.len <= send_total)

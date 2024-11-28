@@ -199,7 +199,7 @@ pub const HTTPServer = struct {
             const compressed_file = try self.compress(buf);
             return @constCast(compressed_file);
         } else {
-            return try allocator.dupe(u8, buf);
+            return try std.heap.page_allocator.dupe(u8, buf);
         }
     }
 

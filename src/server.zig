@@ -18,8 +18,6 @@ fn cmp(context: void, a: Request, b: Request) std.math.Order {
 }
 
 pub const HTTPServer = struct {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    const allocator = gpa.allocator();
     var stdout = std.io.getStdOut().writer();
 
     var self_port_addr: u16 = undefined;
@@ -62,7 +60,6 @@ pub const HTTPServer = struct {
     pub fn deinit(self: *HTTPServer) void {
         self.dir.close();
         self.listener.deinit();
-        _ = gpa.deinit();
     }
 
     pub fn serve(self: @This()) !void {
@@ -190,8 +187,7 @@ pub const HTTPServer = struct {
         };
         defer body_file.close();
         const file_len = try body_file.getEndPos();
-        const buf = try allocator.alloc(u8, file_len);
-        defer allocator.free(buf);
+        const buf = try std.heap.page_allocator.alloc(u8, file_len);
         _ = try body_file.readAll(buf);
 
         const mime = Mime.asMime(filename);

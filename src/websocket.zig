@@ -59,7 +59,7 @@ pub const WebSocketManager = struct {
         }
     }
     pub fn reload(_: *WebSocketManager) !void {
-        server.sendReload();
+        try server.sendReload();
     }
 
     fn handleStream(_: *WebSocketManager, stream: *std.net.Stream) !WebSocketServer {

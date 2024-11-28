@@ -1,2 +1,2 @@
 pub const HTTPServer = @import("server.zig").HTTPServer;
-pub const websocket = @import("websocket.zig");
+pub const WebSocketManager = @import("websocket.zig").WebSocketManager;

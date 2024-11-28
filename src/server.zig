@@ -270,10 +270,6 @@ pub const HTTPServer = struct {
         }
     }
 
-    pub fn getPortNumber(_: *HTTPServer) u16 {
-        return self_port_addr;
-    }
-
     fn compress(_: *HTTPServer, content: []u8) ![]const u8 {
         var compressed = std.ArrayList(u8).init(std.heap.page_allocator);
         var buf = std.io.fixedBufferStream(content);

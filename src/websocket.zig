@@ -102,7 +102,7 @@ pub const WebSocketServer = struct {
     key: []const u8,
 
     fn deinit(self: *const WebSocketServer) void {
-        self.stream.deinit();
+        self.stream.close();
         _ = gpa.deinit();
     }
 

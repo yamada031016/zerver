@@ -30,7 +30,7 @@ pub const WebSocketManager = struct {
                             self_port_addr += 1;
                             self_addr = try net.Address.resolveIp("127.0.0.1", self_port_addr);
                         },
-                        else => std.debug.print("{s}\n", .{@errorName(err)}),
+                        else => std.log.err("{s}\n", .{@errorName(err)}),
                     }
                 }
             }
@@ -176,13 +176,13 @@ pub const WebSocketServer = struct {
     }
 
     pub fn sendReload(self: *WebSocketServer) !void {
-        std.debug.print("Reload!\n", .{});
         const res = "Reload!";
         var res_buf: [128]u8 = undefined;
         res_buf[0] = 0b1000_0001;
         res_buf[1] = res.len;
         @memcpy(res_buf[2 .. 2 + res.len], res[0..]);
         try self.stream.writer().writeAll(res_buf[0 .. 2 + res.len]);
+        std.debug.print("Reload!\n", .{});
         // const header = WebSocketFormat.init(res);
         // try self.stream.writer().writeStruct(header);
         // std.debug.print("header:\n{}\n", .{header});

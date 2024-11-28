@@ -95,15 +95,11 @@ pub const WebSocketManager = struct {
 };
 
 pub const WebSocketServer = struct {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    const allocator = gpa.allocator();
-
     stream: *std.net.Stream,
     key: []const u8,
 
     fn deinit(self: *const WebSocketServer) void {
         self.stream.close();
-        _ = gpa.deinit();
     }
 
     pub fn readLoop(self: *const WebSocketServer) !void {
@@ -188,8 +184,8 @@ pub const WebSocketServer = struct {
         res_buf[1] = res.len;
         @memcpy(res_buf[2 .. 2 + res.len], res[0..]);
         try self.stream.writer().writeAll(res_buf[0 .. 2 + res.len]);
+        self.deinit();
         std.log.debug("Reload!\n", .{});
-        // self.deinit();
         // const header = WebSocketFormat.init(res);
         // try self.stream.writer().writeStruct(header);
         // std.debug.print("header:\n{}\n", .{header});

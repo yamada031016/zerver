@@ -27,7 +27,7 @@ pub const WebSocketManager = struct {
                 } else |err| {
                     switch (err) {
                         error.AddressInUse => {
-                            std.debug.print("port :{} is already in use.\n", .{self_port_addr});
+                            std.log.info("port :{} is already in use.\n", .{self_port_addr});
                             self_port_addr += 1;
                             self_addr = try net.Address.resolveIp("127.0.0.1", self_port_addr);
                         },
@@ -115,7 +115,7 @@ pub const WebSocketServer = struct {
     }
 
     pub fn readLoop(self: *const WebSocketServer) !void {
-        std.debug.print("start WebSocket connection!\n", .{});
+        std.log.debug("start WebSocket connection!\n", .{});
         var buf: [128]u8 = undefined;
         while (self.stream.read(&buf)) |_| {
             const first_byte = buf[0];
@@ -125,17 +125,17 @@ pub const WebSocketServer = struct {
             const _rsv3 = first_byte & 0b00010000;
             const _opcode = first_byte & 0b00001111;
             if (_opcode == 0x8) break; // connection close
-            std.debug.print("header: {}:{}:{}:{}:{}\n", .{ _fin, _rsv1, _rsv2, _rsv3, _opcode });
+            std.log.debug("header: {}:{}:{}:{}:{}\n", .{ _fin, _rsv1, _rsv2, _rsv3, _opcode });
 
             const second_byte = buf[1];
             const _mask = second_byte & 0b10000000;
-            std.debug.print("mask: {}\n", .{_mask});
+            std.log.debug("mask: {}\n", .{_mask});
             var payload_len: u64 = second_byte & 0b01111111;
             var mask_key_start: usize = 2;
             switch (payload_len) {
                 //Big Endian
                 126 => {
-                    std.debug.print("126!\n", .{});
+                    std.log.debug("126!\n", .{});
                     const expand_payload_len = ArrayToBytes: {
                         var tmp: u16 = 0;
                         for (buf[2..4], 0..) |byte, i| {
@@ -147,7 +147,7 @@ pub const WebSocketServer = struct {
                     mask_key_start = 4;
                 },
                 127 => {
-                    std.debug.print("127!\n", .{});
+                    std.log.debug("127!\n", .{});
                     const expand_payload_len = ArrayToBytes: {
                         var tmp: u64 = 0;
                         for (buf[2..9], 0..) |byte, i| {
@@ -170,18 +170,18 @@ pub const WebSocketServer = struct {
                 const payload_start = mask_key_start + 4;
                 const encoded_payload = buf[payload_start..];
                 var tmp: [128]u8 = undefined;
-                std.debug.print("len: {}\n", .{encoded_payload.len});
+                std.log.debug("len: {}\n", .{encoded_payload.len});
                 for (encoded_payload, 0..) |byte, i| {
                     tmp[i] = byte ^ masking_key[i % 4];
                 }
-                std.debug.print("payload: {s}\n", .{tmp[0..payload_len]});
+                std.log.debug("payload: {s}\n", .{tmp[0..payload_len]});
                 if (std.mem.eql(u8, tmp[0..payload_len], "TEST")) {
                     try self.sendReload();
                 }
             } else {
                 const payload_start = mask_key_start;
                 const encoded_payload = buf[payload_start..];
-                std.debug.print("nomask payload: {s}\n", .{encoded_payload});
+                std.log.debug("nomask payload: {s}\n", .{encoded_payload});
             }
         } else |err| {
             std.log.err("Failed to accept connection: {}", .{err});
@@ -222,7 +222,7 @@ pub const WebSocketServer = struct {
             \\
         ;
         const res = try std.fmt.allocPrintZ(std.heap.page_allocator, res_template, .{encoded_key});
-        std.debug.print("{s}", .{res});
+        std.log.debug("{s}", .{res});
         try self.stream.writer().writeAll(res);
     }
 };
@@ -255,7 +255,7 @@ pub const WebSocketFormat = extern struct {
                 // .extend_payload_len = @constCast(&ExPayloadLen{.payload127 = 0}),
             },
             else => |len| {
-                std.debug.print("less than !", .{});
+                std.log.debug("less than !", .{});
                 return .{
                     .payload_len = @intCast(len),
                 };

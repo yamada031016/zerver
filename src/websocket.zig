@@ -36,7 +36,6 @@ pub const WebSocketManager = struct {
                 }
             }
         };
-        std.log.err("ws port:{d}\n", .{self_port_addr});
         return .{
             .listener = listener,
         };

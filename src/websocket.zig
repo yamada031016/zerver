@@ -190,7 +190,7 @@ pub const WebSocketServer = struct {
     pub fn sendData(self: *WebSocketServer, data: []const u8) !void {
         var buf: [128]u8 = undefined;
         buf[0] = 0b1000_0001;
-        buf[1] = data.len;
+        buf[1] = @intCast(data.len);
         @memcpy(buf[2 .. 2 + data.len], data[0..]);
         try self.stream.writer().writeAll(buf[0 .. 2 + data.len]);
         std.log.debug("Reload!\n", .{});

@@ -1,57 +1,181 @@
 const std = @import("std");
 
+// support all common mime type
+// https://developer.mozilla.org/ja/docs/Web/HTTP/MIME_types/Common_types
 pub const Mime = enum {
-    html,
+    aac,
+    abw,
+    arc,
+    avi,
+    azw,
+    bin,
+    bmp,
+    bz,
+    bz2,
+    csh,
     css,
-    map,
-    svg,
+    csv,
+    doc,
+    docx,
+    eot,
+    epub,
+    gz,
+    gif,
+    htm,
+    html,
+    ico,
+    ics,
+    jar,
+    jpeg,
     jpg,
-    png,
-    wasm,
     js,
-    tar,
+    json,
+    jsonld,
+    map,
+    mid,
+    midi,
+    mjs,
+    mp3,
+    mpeg,
+    mpkg,
+    odp,
+    ods,
+    odt,
+    oga,
+    ogv,
+    ogx,
+    opus,
+    otf,
+    png,
     pdf,
+    php,
+    ppt,
+    pptx,
+    rar,
+    rtf,
+    sh,
+    svg,
+    swf,
+    tar,
+    tif,
+    tiff,
+    ts,
+    ttf,
+    txt,
+    vsd,
+    wasm,
+    wav,
+    weba,
+    webm,
+    webp,
+    woff,
+    woff2,
+    xhtml,
+    xls,
+    xlsx,
+    xml,
+    xul,
+    zip,
+    _3gp,
+    _3g2,
+    _7z,
     other,
 
-    // zig fmt: off
     pub fn asMime(filePath: []const u8) Mime {
         const file_ext = extractFileExtension(filePath);
-        return
-            if (std.mem.eql(u8, file_ext, ".html")) .html
-            else if (std.mem.eql(u8, file_ext, ".css")) .css
-            else if (std.mem.eql(u8, file_ext, ".map")) .map
-            else if (std.mem.eql(u8, file_ext, ".svg")) .svg
-            else if (std.mem.eql(u8, file_ext, ".jpg")) .jpg
-            else if (std.mem.eql(u8, file_ext, ".png")) .png
-            else if (std.mem.eql(u8, file_ext, ".wasm")) .wasm
-            else if (std.mem.eql(u8, file_ext, ".js")) .js
-            else if (std.mem.eql(u8, file_ext, ".tar")) .tar
-            else if (std.mem.eql(u8, file_ext, ".pdf")) .pdf
-            else unreachable;
-    }
-// zig fmt: on
-    pub fn asText(self: *const Mime) []const u8 {
-        return switch (self.*) {
-            .html => "text/html",
-            .css => "text/css",
-            .map => "application/json",
-            .svg => "image/svg+xml",
-            .jpg => "image/jpg",
-            .png => "image/png",
-            .wasm => "application/wasm",
-            .js => "text/javascript",
-            .tar => "application/x-tar",
-            .pdf => "application/pdf",
-            .other => "text/plain",
-        };
-    }
-    pub fn shouldCompress(self: *const Mime) bool {
-        switch (self.*) {
-            .html, .css, .map, .js => return true,
-            .svg, .jpg, .png, .wasm, .tar, .pdf, .other => return false,
+        if (std.meta.stringToEnum(Mime, file_ext[1..])) |mime| {
+            return mime;
+        } else {
+            return .other;
         }
     }
 
+    pub fn asText(self: *const Mime) []const u8 {
+        return switch (self.*) {
+            .aac => "audio/aac",
+            .abw => "application/x-abiword",
+            .arc => "application/x-freearc",
+            .avi => "video/x-msvideo",
+            .azw => "application/vnd.amazon.ebook",
+            .bin => "application/octet-stream",
+            .bmp => "image/bmp",
+            .bz => "application/x-bzip",
+            .bz2 => "application/x-bzip2",
+            .csh => "application/x-csh",
+            .css => "text/css",
+            .csv => "text/csv",
+            .doc => "application/msword",
+            .docx => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            .eot => "application/vnd.ms-fontobject",
+            .epub => "application/epub+zip",
+            .gz => "application/gzip",
+            .gif => "image/gif",
+            .html, .htm => "text/html",
+            .ico => "image/vnd.microsoft.icon",
+            .ics => "text/calendar",
+            .jar => "application/java-archive",
+            .jpeg => "image/jpeg",
+            .jpg => "image/jpeg",
+            .js => "text/javascript",
+            .json => "application/json",
+            .jsonld => "application/ld+json",
+            .map => "application/json",
+            .midi, .mid => "audio/midi",
+            .mjs => "text/javascript",
+            .mp3 => "audio/mpeg",
+            .mpeg => "video/mpeg",
+            .mpkg => "application/vnd.apple.installer+xml",
+            .odp => "application/vnd.oasis.opendocument.presentation",
+            .ods => "application/vnd.oasis.opendocument.spreadsheet",
+            .odt => "application/vnd.oasis.opendocument.text",
+            .oga => "audio/ogg",
+            .ogv => "video/ogg",
+            .ogx => "application/ogg",
+            .opus => "audio/opus",
+            .otf => "font/otf",
+            .png => "image/png",
+            .pdf => "application/pdf",
+            .php => "application/x-httpd-php",
+            .ppt => "application/vnd.ms-powerpoint",
+            .pptx => "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            .rar => "application/vnd.rar",
+            .rtf => "application/rtf",
+            .sh => "application/x-sh",
+            .svg => "image/svg+xml",
+            .swf => "application/x-shockwave-flash",
+            .tar => "application/x-tar",
+            .tif => "image/tiff",
+            .tiff => "image/tiff",
+            .ts => "video/mp2t",
+            .ttf => "font/ttf",
+            .txt => "text/plain",
+            .vsd => "application/vnd.visio",
+            .wasm => "application/wasm",
+            .wav => "audio/wav",
+            .weba => "audio/webm",
+            .webm => "video/webm",
+            .webp => "image/webp",
+            .woff => "font/woff",
+            .woff2 => "font/woff2",
+            .xhtml => "application/xhtml+xml",
+            .xls => "application/vnd.ms-excel",
+            .xlsx => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            .xml => "application/xml",
+            .xul => "application/vnd.mozilla.xul+xml",
+            .zip => "application/zip",
+            ._3gp => "video/3gpp",
+            ._3g2 => "video/3gpp2",
+            ._7z => "application/x-7z-compressed",
+            .other => "text/plain", // Default for unrecognized mime types
+        };
+    }
+
+    pub fn shouldCompress(self: *const Mime) bool {
+        switch (self.*) {
+            .html, .css, .map, .js, .json, .xml, .csv, .txt => return true,
+            else => return false,
+        }
+    }
     fn extractFileExtension(filePath: []const u8) []const u8 {
         var file_ext = std.fs.path.extension(filePath);
         if (file_ext.len == 0) {

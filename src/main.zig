@@ -3,7 +3,7 @@ const HTTPServer = @import("server.zig").HTTPServer;
 
 pub const ExecuteOptions = struct {
     dirname: []const u8 = ".",
-    ip_addr: []const u8 = "localhost",
+    ip_addr: []const u8 = "127.0.0.1",
     port_addr: u16 = 8000,
 };
 

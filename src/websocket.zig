@@ -59,7 +59,7 @@ pub const WebSocketManager = struct {
         }
     }
 
-    pub fn reload(_: *WebSocketManager, data: []const u8) !void {
+    pub fn sendData(_: *WebSocketManager, data: []const u8) !void {
         try server.sendData(data);
     }
 

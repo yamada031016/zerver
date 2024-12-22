@@ -5,7 +5,7 @@ pub fn main() !void {
     var manager = try WebSocketManager.init(5555);
     var ws = try manager.waitConnection();
     while (true) {
-        try ws.sendReload();
+        try ws.sendData("Reload!");
         ws = try manager.waitConnection();
     }
 }
@@ -59,8 +59,8 @@ pub const WebSocketManager = struct {
         }
     }
 
-    pub fn reload(_: *WebSocketManager) !void {
-        try server.sendReload();
+    pub fn reload(_: *WebSocketManager, data: []const u8) !void {
+        try server.sendData(data);
     }
 
     fn handleStream(_: *WebSocketManager, stream: *std.net.Stream) !WebSocketServer {

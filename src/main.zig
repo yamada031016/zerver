@@ -20,7 +20,7 @@ pub fn main() !void {
             } else if (std.mem.eql(u8, option, "-i")) {
                 selected_field = "ip_addr";
             } else if (std.mem.eql(u8, option, "-p")) {
-                selected_field = "port_addr";
+                selected_field = "port_number";
             } else if (std.mem.eql(u8, option, "-h")) {
                 try help_message();
                 if (args.inner.count != 2) {
@@ -34,8 +34,8 @@ pub fn main() !void {
                 exe_opt.dirname = option;
             } else if (std.mem.eql(u8, selected_field, "ip_addr")) {
                 exe_opt.ip_addr = option;
-            } else if (std.mem.eql(u8, selected_field, "port_addr")) {
-                exe_opt.port_addr = try std.fmt.parseInt(u16, option, 10);
+            } else if (std.mem.eql(u8, selected_field, "port_number")) {
+                exe_opt.port_number = try std.fmt.parseInt(u16, option, 10);
             }
             selected_field = "";
         }

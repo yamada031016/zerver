@@ -29,7 +29,7 @@ pub const HTTPServer = struct {
     dir: fs.Dir,
 
     pub fn init(exe_opt: ExecuteOptions) !HTTPServer {
-        self_port_addr = exe_opt.port_addr;
+        self_port_addr = exe_opt.port_number;
         self_ipaddr = exe_opt.ip_addr;
         const dir = try fs.cwd().openDir(exe_opt.dirname, .{});
         var self_addr = try net.Address.resolveIp(self_ipaddr, self_port_addr);

@@ -83,6 +83,7 @@ pub const Mime = enum {
 
     pub fn asMime(filePath: []const u8) Mime {
         const file_ext = extractFileExtension(filePath);
+        // ignore '.' ex) .html => html
         if (std.meta.stringToEnum(Mime, file_ext[1..])) |mime| {
             return mime;
         } else {
@@ -179,7 +180,8 @@ pub const Mime = enum {
     fn extractFileExtension(filePath: []const u8) []const u8 {
         var file_ext = std.fs.path.extension(filePath);
         if (file_ext.len == 0) {
-            // complement file extension. ex) path = /filename
+            // complement file extension.
+            // ex) path = /filename
             file_ext = ".html";
         }
         return file_ext;

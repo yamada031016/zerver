@@ -176,9 +176,6 @@ pub const WebSocketServer = struct {
                     tmp[i] = byte ^ masking_key[i % 4];
                 }
                 std.log.debug("payload: {s}\n", .{tmp[0..payload_len]});
-                if (std.mem.eql(u8, tmp[0..payload_len], "TEST")) {
-                    try self.sendReload();
-                }
             } else {
                 const payload_start = mask_key_start;
                 const encoded_payload = buf[payload_start..];
@@ -190,13 +187,12 @@ pub const WebSocketServer = struct {
         }
     }
 
-    pub fn sendReload(self: *WebSocketServer) !void {
-        const res = "Reload!";
-        var res_buf: [128]u8 = undefined;
-        res_buf[0] = 0b1000_0001;
-        res_buf[1] = res.len;
-        @memcpy(res_buf[2 .. 2 + res.len], res[0..]);
-        try self.stream.writer().writeAll(res_buf[0 .. 2 + res.len]);
+    pub fn sendData(self: *WebSocketServer, data: []const u8) !void {
+        var buf: [128]u8 = undefined;
+        buf[0] = 0b1000_0001;
+        buf[1] = data.len;
+        @memcpy(buf[2 .. 2 + data.len], data[0..]);
+        try self.stream.writer().writeAll(buf[0 .. 2 + data.len]);
         std.log.debug("Reload!\n", .{});
     }
 

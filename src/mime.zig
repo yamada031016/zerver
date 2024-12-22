@@ -46,8 +46,6 @@ pub const Mime = enum {
         };
     }
     pub fn shouldCompress(self: *const Mime) bool {
-        // _ = self;
-        // return false;
         switch (self.*) {
             .html, .css, .map, .js => return true,
             .svg, .jpg, .png, .wasm, .tar, .pdf, .other => return false,
@@ -57,7 +55,7 @@ pub const Mime = enum {
     fn extractFileExtension(filePath: []const u8) []const u8 {
         var file_ext = std.fs.path.extension(filePath);
         if (file_ext.len == 0) {
-            // /hogeのとき.htmlを補完する
+            // complement file extension. ex) path = /filename
             file_ext = ".html";
         }
         return file_ext;

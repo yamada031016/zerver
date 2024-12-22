@@ -6,6 +6,8 @@ const log = std.log;
 
 const Mime = @import("mime.zig").Mime;
 
+const ExecuteOptions = @import("main.zig").ExecuteOptions;
+
 // these are to be used with the async/await functions.
 const Request = struct {
     frame: anyframe,
@@ -26,10 +28,10 @@ pub const HTTPServer = struct {
     listener: net.Server,
     dir: fs.Dir,
 
-    pub fn init(public_path: []const u8, ipaddr: []const u8, port_addr: u16) !HTTPServer {
-        self_port_addr = port_addr;
-        self_ipaddr = ipaddr;
-        const dir = try fs.cwd().openDir(public_path, .{});
+    pub fn init(exe_opt: ExecuteOptions) !HTTPServer {
+        self_port_addr = exe_opt.port_addr;
+        self_ipaddr = exe_opt.ip_addr;
+        const dir = try fs.cwd().openDir(exe_opt.dirname, .{});
         var self_addr = try net.Address.resolveIp(self_ipaddr, self_port_addr);
         const listener = listen: {
             while (true) {
@@ -64,6 +66,7 @@ pub const HTTPServer = struct {
 
     pub fn serve(self: @This()) !void {
         const uri = try std.fmt.allocPrint(std.heap.page_allocator, "http://{s}:{}", .{ self_ipaddr, self_port_addr });
+        // make URL clickable to open.
         try stdout.print("listening on \x1B]8;;{s}\x1B\\{s}\x1B]8;;\x1B\\\npress Ctrl-C to quit...\n", .{ uri, uri });
         while (@constCast(&self.listener).accept()) |conn| {
             log.debug("Accepted Connection from: {}", .{conn.address});
@@ -142,9 +145,6 @@ pub const HTTPServer = struct {
         var file_path: []const u8 = undefined;
         var tok_itr = mem.tokenizeAny(u8, recv, " ");
 
-        // if (!mem.eql(u8, tok_itr.next() orelse "", "GET"))
-        // return ServeFileError.HeaderDidNotMatch;
-
         const path = tok_itr.next() orelse "";
         if (path[0] != '/') {
             return ServeFileError.HeaderDidNotMatch;
@@ -201,25 +201,6 @@ pub const HTTPServer = struct {
 
     fn sendFile(self: *HTTPServer, stream: *net.Stream, fileName: []const u8) !void {
         const fullFileName = try self.complementFileName(fileName);
-
-        // log.debug("Opening {s}\n", .{file});
-        // std.debug.print("hoge: {s}\n", .{file});
-
-        // openFile()に渡す引数fileはなぜか""で上書きされて返ってくる...?
-        // var body_file = self.dir.openFile(file, .{}) catch {
-        //     try stream.writeAll(
-        //         \\HTTP/1.1 404 Not Found
-        //         \\Connection: close
-        //         \\Content-Type: text/html; charset=UTF-8
-        //         \\
-        //         \\
-        //         \\<h1>404 Not Found.</h1>
-        //     );
-        //     return ServeFileError.FileNotFound;
-        // };
-        // defer body_file.close();
-        //
-        // const file_len = try body_file.getEndPos();
         const body_file = try self.openFile(stream, fullFileName);
 
         const mime = Mime.asMime(fullFileName);

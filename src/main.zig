@@ -9,7 +9,8 @@ pub const ExecuteOptions = struct {
 
 pub fn main() !void {
     var args = std.process.args();
-    _ = args.next() orelse "zerver";
+    _ = args.skip();
+
     var exe_opt = ExecuteOptions{};
     var selected_field: []const u8 = "";
     while (args.next()) |option| {
@@ -43,31 +44,13 @@ pub fn main() !void {
             std.log.err("{s} did not specified.\n", .{selected_field});
         }
     }
-    // const public_path = args.next() orelse {
-    //     std.log.err("Usage: {s} <serve dir>", .{exe_name});
-    //     return;
-    // };
 
-    // const port_addr: u16 = 8000;
-    // const ip_addr = "0.0.0.0";
-    var server = try HTTPServer.init(exe_opt.dirname, exe_opt.ip_addr, exe_opt.port_addr);
+    var server = try HTTPServer.init(exe_opt);
     defer server.deinit();
-
-    // var act = std.posix.Sigaction{
-    //     .handler = .{
-    //         .handler = struct {
-    //             fn wrapper(_: c_int) callconv(.C) void {
-    //                 std.process.exit(0);
-    //             }
-    //         }.wrapper,
-    //     },
-    //     .mask = std.posix.empty_sigset,
-    //     .flags = 0,
-    // };
-    // try std.posix.sigaction(std.posix.SIG.INT, &act, null);
 
     try server.serve();
 }
+
 fn help_message() !void {
     const stdout = std.io.getStdOut().writer();
     const usage =

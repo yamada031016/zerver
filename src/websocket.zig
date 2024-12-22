@@ -49,7 +49,8 @@ pub const WebSocketManager = struct {
             return err;
         }
     }
-    pub fn waitConnection2(self: *WebSocketManager) !void {
+
+    pub fn connect(self: *WebSocketManager) !void {
         while (self.listener.accept()) |conn| {
             std.log.info("Accepted Connection from: {}", .{conn.address});
             server = try self.handleStream(@constCast(&conn.stream));
@@ -57,6 +58,7 @@ pub const WebSocketManager = struct {
             return err;
         }
     }
+
     pub fn reload(_: *WebSocketManager) !void {
         try server.sendReload();
     }
@@ -195,12 +197,7 @@ pub const WebSocketServer = struct {
         res_buf[1] = res.len;
         @memcpy(res_buf[2 .. 2 + res.len], res[0..]);
         try self.stream.writer().writeAll(res_buf[0 .. 2 + res.len]);
-        // self.deinit();
         std.log.debug("Reload!\n", .{});
-        // const header = WebSocketFormat.init(res);
-        // try self.stream.writer().writeStruct(header);
-        // std.debug.print("header:\n{}\n", .{header});
-        // try self.stream.writer().writeAll(res);
     }
 
     pub fn handshakeWebSocketOpening(self: *WebSocketServer) !void {
@@ -247,11 +244,9 @@ pub const WebSocketFormat = extern struct {
         switch (payload.len) {
             126 => return .{
                 .payload_len = 126,
-                // .extend_payload_len = @constCast(&ExPayloadLen{.payload126 = 0}),
             },
             127 => return .{
                 .payload_len = 127,
-                // .extend_payload_len = @constCast(&ExPayloadLen{.payload127 = 0}),
             },
             else => |len| {
                 std.log.debug("less than !", .{});

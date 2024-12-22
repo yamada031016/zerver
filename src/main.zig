@@ -1,7 +1,7 @@
 const std = @import("std");
 const HTTPServer = @import("server.zig").HTTPServer;
 
-const ExecuteOptions = struct {
+pub const ExecuteOptions = struct {
     dirname: []const u8 = ".",
     ip_addr: []const u8 = "localhost",
     port_addr: u16 = 8000,

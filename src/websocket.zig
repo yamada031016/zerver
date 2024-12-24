@@ -29,7 +29,14 @@ pub const WebSocketManager = struct {
                         error.AddressInUse => {
                             std.log.info("port :{} is already in use.\n", .{self_port_addr});
                             self_port_addr += 1;
-                            self_addr = try net.Address.resolveIp("127.0.0.1", self_port_addr);
+                            // avoid bug in Windows where
+                            // resolveIp() tries to force the argument to resolve to IPv6
+                            self_addr = switch (@import("builtin").os.tag) {
+                                .windows => {
+                                    net.Address.initIp4(.{ 127, 0, 0, 1 }, self_port_addr);
+                                },
+                                else => try net.Address.resolveIp("127.0.0.1", self_port_addr),
+                            };
                         },
                         else => std.log.err("{s}\n", .{@errorName(err)}),
                     }

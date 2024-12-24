@@ -30,7 +30,14 @@ pub const HTTPServer = struct {
         self_port_addr = exe_opt.port_number;
         self_ipaddr = exe_opt.ip_addr;
         const dir = try fs.cwd().openDir(exe_opt.dirname, .{});
-        var self_addr = try net.Address.resolveIp(self_ipaddr, self_port_addr);
+        // avoid bug in Windows where
+        // resolveIp() tries to force the argument to resolve to IPv6
+        var self_addr = switch (@import("builtin").os.tag) {
+            .windows => {
+                net.Address.initIp4(.{ 127, 0, 0, 1 }, self_port_addr);
+            },
+            else => try net.Address.resolveIp("127.0.0.1", self_port_addr),
+        };
         const listener = listen: {
             while (true) {
                 if (net.Address.listen(self_addr, .{})) |_listener| {

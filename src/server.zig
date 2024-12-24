@@ -20,8 +20,6 @@ fn cmp(context: void, a: Request, b: Request) std.math.Order {
 }
 
 pub const HTTPServer = struct {
-    var stdout = std.io.getStdOut().writer();
-
     var self_port_addr: u16 = undefined;
     var self_ipaddr: []const u8 = undefined;
 
@@ -67,6 +65,7 @@ pub const HTTPServer = struct {
     pub fn serve(self: @This()) !void {
         const uri = try std.fmt.allocPrint(std.heap.page_allocator, "http://{s}:{}", .{ self_ipaddr, self_port_addr });
         // make URL clickable to open.
+        const stdout = std.io.getStdOut().writer();
         try stdout.print("listening on \x1B]8;;{s}\x1B\\{s}\x1B]8;;\x1B\\\npress Ctrl-C to quit...\n", .{ uri, uri });
         while (@constCast(&self.listener).accept()) |conn| {
             log.debug("Accepted Connection from: {}", .{conn.address});

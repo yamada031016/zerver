@@ -37,7 +37,7 @@ pub const HTTPServer = struct {
             switch (@import("builtin").os.tag) {
                 .windows => {
                     const ipv4 = parse: {
-                        const it = std.mem.tokenizeScalar(u8, self_ipaddr, '.');
+                        var it = std.mem.tokenizeScalar(u8, self_ipaddr, '.');
                         var _ipv4: [3]u8 = undefined;
                         var _ipv4_pos: usize = 0;
                         while (it.next()) |i| {
@@ -64,7 +64,7 @@ pub const HTTPServer = struct {
                                 switch (@import("builtin").os.tag) {
                                     .windows => {
                                         const ipv4 = parse: {
-                                            const it = std.mem.tokenizeScalar(u8, self_ipaddr, '.');
+                                            var it = std.mem.tokenizeScalar(u8, self_ipaddr, '.');
                                             var _ipv4: [3]u8 = undefined;
                                             var _ipv4_pos: usize = 0;
                                             while (it.next()) |i| {

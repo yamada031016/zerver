@@ -36,9 +36,19 @@ pub const HTTPServer = struct {
         var self_addr = avoid: {
             switch (@import("builtin").os.tag) {
                 .windows => {
-                    break :avoid net.Address.initIp4(.{ 127, 0, 0, 1 }, self_port_addr);
+                    const ipv4 = parse: {
+                        const it = std.mem.tokenizeScalar(u8, self_ipaddr, '.');
+                        var _ipv4: [3]u8 = undefined;
+                        var _ipv4_pos: usize = 0;
+                        while (it.next()) |i| {
+                            _ipv4[_ipv4_pos] = i;
+                            _ipv4_pos += 1;
+                        }
+                        break :parse _ipv4;
+                    };
+                    break :avoid net.Address.initIp4(ipv4, self_port_addr);
                 },
-                else => break :avoid try net.Address.resolveIp("127.0.0.1", self_port_addr),
+                else => break :avoid try net.Address.resolveIp(self_ipaddr, self_port_addr),
             }
         };
         const listener = listen: {
@@ -53,9 +63,19 @@ pub const HTTPServer = struct {
                             self_addr = avoid: {
                                 switch (@import("builtin").os.tag) {
                                     .windows => {
-                                        break :avoid net.Address.initIp4(.{ 127, 0, 0, 1 }, self_port_addr);
+                                        const ipv4 = parse: {
+                                            const it = std.mem.tokenizeScalar(u8, self_ipaddr, '.');
+                                            var _ipv4: [3]u8 = undefined;
+                                            var _ipv4_pos: usize = 0;
+                                            while (it.next()) |i| {
+                                                _ipv4[_ipv4_pos] = i;
+                                                _ipv4_pos += 1;
+                                            }
+                                            break :parse _ipv4;
+                                        };
+                                        break :avoid net.Address.initIp4(ipv4, self_port_addr);
                                     },
-                                    else => break :avoid try net.Address.resolveIp("127.0.0.1", self_port_addr),
+                                    else => break :avoid try net.Address.resolveIp(self_ipaddr, self_port_addr),
                                 }
                             };
                         },

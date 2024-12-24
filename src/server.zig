@@ -50,7 +50,14 @@ pub const HTTPServer = struct {
                         error.AddressInUse => {
                             log.info("port :{} is already in use.\n", .{self_port_addr});
                             self_port_addr += 1;
-                            self_addr = try net.Address.resolveIp(self_ipaddr, self_port_addr);
+                            self_addr = avoid: {
+                                switch (@import("builtin").os.tag) {
+                                    .windows => {
+                                        break :avoid net.Address.initIp4(.{ 127, 0, 0, 1 }, self_port_addr);
+                                    },
+                                    else => break :avoid try net.Address.resolveIp("127.0.0.1", self_port_addr),
+                                }
+                            };
                         },
                         else => log.err("{s}\n", .{@errorName(err)}),
                     }

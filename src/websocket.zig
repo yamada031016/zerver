@@ -19,7 +19,17 @@ pub const WebSocketManager = struct {
 
     pub fn init(port: u16) !WebSocketManager {
         var self_port_addr = port;
-        var self_addr = try net.Address.resolveIp("127.0.0.1", self_port_addr);
+        // avoid bug in Windows where
+        // resolveIp() tries to force the argument to resolve to IPv6
+        // https://github.com/ziglang/zig/issues/20530
+        var self_addr = avoid: {
+            switch (@import("builtin").os.tag) {
+                .windows => {
+                    break :avoid net.Address.initIp4(.{ 127, 0, 0, 1 }, self_port_addr);
+                },
+                else => break :avoid try net.Address.resolveIp("127.0.0.1", self_port_addr),
+            }
+        };
         const listener = listen: {
             while (true) {
                 if (net.Address.listen(self_addr, .{})) |_listener| {
@@ -29,9 +39,6 @@ pub const WebSocketManager = struct {
                         error.AddressInUse => {
                             std.log.info("port :{} is already in use.\n", .{self_port_addr});
                             self_port_addr += 1;
-                            // avoid bug in Windows where
-                            // resolveIp() tries to force the argument to resolve to IPv6
-                            // https://github.com/ziglang/zig/issues/20530
                             self_addr = avoid: {
                                 switch (@import("builtin").os.tag) {
                                     .windows => {

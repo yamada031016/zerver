@@ -41,7 +41,7 @@ pub const HTTPServer = struct {
                         var _ipv4: [3]u8 = undefined;
                         var _ipv4_pos: usize = 0;
                         while (it.next()) |i| {
-                            _ipv4[_ipv4_pos] = i;
+                            _ipv4[_ipv4_pos] = try std.fmt.parseInt(u8, i, 10);
                             _ipv4_pos += 1;
                         }
                         break :parse _ipv4;
@@ -68,7 +68,7 @@ pub const HTTPServer = struct {
                                             var _ipv4: [3]u8 = undefined;
                                             var _ipv4_pos: usize = 0;
                                             while (it.next()) |i| {
-                                                _ipv4[_ipv4_pos] = i;
+                                                _ipv4[_ipv4_pos] = try std.fmt.parseInt(u8, i, 10);
                                                 _ipv4_pos += 1;
                                             }
                                             break :parse _ipv4;

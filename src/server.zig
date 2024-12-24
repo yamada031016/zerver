@@ -32,6 +32,7 @@ pub const HTTPServer = struct {
         const dir = try fs.cwd().openDir(exe_opt.dirname, .{});
         // avoid bug in Windows where
         // resolveIp() tries to force the argument to resolve to IPv6
+        // https://github.com/ziglang/zig/issues/20530
         var self_addr = switch (@import("builtin").os.tag) {
             .windows => {
                 net.Address.initIp4(.{ 127, 0, 0, 1 }, self_port_addr);

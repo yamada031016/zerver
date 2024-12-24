@@ -31,6 +31,7 @@ pub const WebSocketManager = struct {
                             self_port_addr += 1;
                             // avoid bug in Windows where
                             // resolveIp() tries to force the argument to resolve to IPv6
+                            // https://github.com/ziglang/zig/issues/20530
                             self_addr = switch (@import("builtin").os.tag) {
                                 .windows => {
                                     net.Address.initIp4(.{ 127, 0, 0, 1 }, self_port_addr);

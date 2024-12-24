@@ -32,11 +32,13 @@ pub const WebSocketManager = struct {
                             // avoid bug in Windows where
                             // resolveIp() tries to force the argument to resolve to IPv6
                             // https://github.com/ziglang/zig/issues/20530
-                            self_addr = switch (@import("builtin").os.tag) {
-                                .windows => {
-                                    net.Address.initIp4(.{ 127, 0, 0, 1 }, self_port_addr);
-                                },
-                                else => try net.Address.resolveIp("127.0.0.1", self_port_addr),
+                            self_addr = avoid: {
+                                switch (@import("builtin").os.tag) {
+                                    .windows => {
+                                        break :avoid net.Address.initIp4(.{ 127, 0, 0, 1 }, self_port_addr);
+                                    },
+                                    else => break :avoid try net.Address.resolveIp("127.0.0.1", self_port_addr),
+                                }
                             };
                         },
                         else => std.log.err("{s}\n", .{@errorName(err)}),

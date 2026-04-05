@@ -1,6 +1,7 @@
 .{
-    .name = "zerver",
+    .name = .zerver,
     .version = "0.1.0",
+    .fingerprint = 0x7d62843edc12ce15,
     .dependencies = .{},
 
     .paths = .{

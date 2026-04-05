@@ -4,5 +4,4 @@ zig-cache
 zig-cache/
 .zig-cache
 .zig-cache/
-build.zig.zon
 *.pcap

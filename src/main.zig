@@ -13,20 +13,33 @@ pub const ExecuteOptions = struct {
 pub fn main(init: std.process.Init) !void {
     const allocator: std.mem.Allocator = init.gpa;
 
-    const exe_opt = try parseArgs(allocator, init.minimal.args);
+    const result = try parseArgs(allocator, init.minimal.args);
 
-    var server = try HTTPServer.init(
-        init.io,
-        allocator,
-        exe_opt.dirname,
-        try std.Io.net.IpAddress.parse(exe_opt.ip_addr, exe_opt.port_number)
-    );
-    defer server.deinit();
+    switch (result) {
+        .help => {
+            try printHelp(init.io);
+            return;
+        },
+        .ok => |exe_opt| {
+            var server = try HTTPServer.init(
+                init.io,
+                allocator,
+                exe_opt.dirname,
+                try std.Io.net.IpAddress.parse(exe_opt.ip_addr, exe_opt.port_number),
+            );
+            defer server.deinit();
 
-    try server.serve();
+            try server.serve();
+        },
+    }
 }
 
-fn parseArgs(allocator: Allocator,args: std.process.Args) !ExecuteOptions {
+const ParseResult = union(enum) {
+    ok: ExecuteOptions,
+    help,
+};
+
+fn parseArgs(allocator: Allocator, args: std.process.Args) !ParseResult {
     var opt = ExecuteOptions{};
 
     var args_iter = try args.iterateAllocator(allocator);
@@ -39,15 +52,17 @@ fn parseArgs(allocator: Allocator,args: std.process.Args) !ExecuteOptions {
     } = .none;
 
     _ = args_iter.skip();
+
     while (args_iter.next()) |arg| {
         if (arg.len > 0 and arg[0] == '-') {
-            state = switch (std.mem.eql(u8, arg, "-d")) {
-                true => .dir,
-                false => if (std.mem.eql(u8, arg, "-i")) .ip
-                else if (std.mem.eql(u8, arg, "-p")) .port
-                else if (std.mem.eql(u8, arg, "-h")) return error.ShowHelp
-                else return error.InvalidArgument,
-            };
+            switch(arg[1]) {
+                'h' => return ParseResult.help,
+                'd' => state = .dir,
+                'i' => state = .ip,
+                'p' => state = .port,
+                else => return error.InvalidArgument,
+            }
+
             continue;
         }
 
@@ -63,7 +78,7 @@ fn parseArgs(allocator: Allocator,args: std.process.Args) !ExecuteOptions {
 
     if (state != .none) return error.MissingValue;
 
-    return opt;
+    return ParseResult{ .ok = opt };
 }
 
 test "parse args" {

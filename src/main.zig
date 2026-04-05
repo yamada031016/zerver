@@ -7,8 +7,9 @@ pub const ExecuteOptions = struct {
     port_number: u16 = 8000,
 };
 
-pub fn main() !void {
-    var args = std.process.args();
+pub fn main(init: std.process.Init) !void {
+    const allocator: std.mem.Allocator = init.gpa;
+    var args = try init.minimal.args.iterateAllocator(allocator);
     _ = args.skip();
 
     var exe_opt = ExecuteOptions{};
@@ -22,8 +23,8 @@ pub fn main() !void {
             } else if (std.mem.eql(u8, option, "-p")) {
                 selected_field = "port_number";
             } else if (std.mem.eql(u8, option, "-h")) {
-                try help_message();
-                if (args.inner.count != 2) {
+                try help_message(init.io);
+                if (args.inner.remaining.len != 2) {
                     std.log.err("-h option cannot specified with any other options.", .{});
                     std.process.exit(1);
                 }
@@ -45,14 +46,16 @@ pub fn main() !void {
         }
     }
 
-    var server = try HTTPServer.init(exe_opt);
+    var server = try HTTPServer.init(init.io, exe_opt);
     defer server.deinit();
 
     try server.serve();
 }
 
-fn help_message() !void {
-    const stdout = std.io.getStdOut().writer();
+fn help_message(io: std.Io) !void {
+    var stdout_buffer: [1024]u8 = undefined;
+    var stdout_writer = std.Io.File.stdout().writer(io, &stdout_buffer);
+    const stdout = &stdout_writer.interface;
     const usage =
         \\Usage: zerver [option] [value]
         \\
@@ -65,4 +68,5 @@ fn help_message() !void {
         \\
     ;
     _ = try stdout.write(usage);
+    try stdout.flush();
 }

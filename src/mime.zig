@@ -173,7 +173,7 @@ pub const Mime = enum {
 
     pub fn shouldCompress(self: *const Mime) bool {
         switch (self.*) {
-            .html, .css, .map, .js, .json, .xml, .csv, .txt => return true,
+            .html, .css, .map, .js, .json, .xml, .csv, .txt => return false,
             else => return false,
         }
     }

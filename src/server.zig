@@ -16,7 +16,7 @@ pub const HTTPServer = struct {
 
     pub fn init(io: std.Io, allocator: Allocator, root_path: []const u8, addr: net.IpAddress) !HTTPServer {
         const dir = try std.Io.Dir.cwd().openDir(io, root_path, .{});
-        const listener = try net.IpAddress.listen(addr, io, .{.reuse_address=true});
+        const listener = try net.IpAddress.listen(&addr, io, .{ .reuse_address = true });
 
         return HTTPServer{
             .allocator = allocator,
@@ -214,7 +214,6 @@ test "gzip roundtrip" {
 
     try std.testing.expectEqualStrings(input, output);
 }
-
 
 test "generate encoded key in handshake websocket" {
     const key = "dGhlIHNhbXBsZSBub25jZQ==";

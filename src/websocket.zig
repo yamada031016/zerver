@@ -319,12 +319,22 @@ const Allocator = std.mem.Allocator;
 // }
 
 pub fn main(init: std.process.Init) !void {
-    const allocator: std.mem.Allocator = init.gpa;
+    const allocator = init.gpa;
+
     var manager = try WebSocketManager.init(init.io, allocator, 5555);
-    var ws = try manager.waitConnection();
+
     while (true) {
-        try ws.sendData("Reload!");
-        ws = try manager.waitConnection();
+        var ws = try manager.waitConnection();
+
+        // handshake済み
+        try ws.sendData("hello");
+
+        // readLoopも通す（クライアントが来れば）
+        ws.readLoop() catch |err| {
+            std.log.err("readLoop error: {}", .{err});
+        };
+
+        ws.deinit();
     }
 }
 
@@ -350,6 +360,44 @@ pub const WebSocketRequestParser = struct {
     }
 };
 
+test "WebSocketRequestParser parse" {
+    const allocator = std.testing.allocator;
+
+    const raw =
+        "GET /chat HTTP/1.1\r\n" ++
+        "Host: localhost\r\n" ++
+        "Upgrade: websocket\r\n" ++
+        "Connection: Upgrade\r\n" ++
+        "Sec-WebSocket-Key: testkey==\r\n\r\n";
+
+    var parser = WebSocketRequestParser{ .allocator = allocator };
+    var map = try parser.parse(raw);
+    defer map.deinit();
+
+    try std.testing.expect(map.contains("Upgrade"));
+    try std.testing.expect(map.contains("Connection"));
+    try std.testing.expect(map.contains("Sec-WebSocket-Key"));
+}
+
+test "websocket accept key" {
+    const key = "dGhlIHNhbXBsZSBub25jZQ==";
+    const magic = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+
+    const allocator = std.testing.allocator;
+
+    const combined = try std.fmt.allocPrint(allocator, "{s}{s}", .{ key, magic });
+    defer allocator.free(combined);
+
+    var out: [20]u8 = undefined;
+    std.crypto.hash.Sha1.hash(combined, &out, .{});
+
+    var buf: [128]u8 = undefined;
+    const encoder = std.base64.Base64Encoder.init(std.base64.standard_alphabet_chars, '=');
+    const encoded = encoder.encode(&buf, &out);
+
+    try std.testing.expectEqualStrings("s3pPLMBiTxaQ9kYGzzhZRbK+xOo=", encoded);
+}
+
 pub const WebSocketManager = struct {
     var server: WebSocketServer = undefined;
 
@@ -371,7 +419,7 @@ pub const WebSocketManager = struct {
         while (self.listener.accept(self.io)) |conn| {
             const ip4 = conn.socket.address.ip4;
             std.log.info("Accepted Connection from: {s}:{d}", .{ ip4.bytes, ip4.port });
-            return try self.handleStream(@constCast(&conn.stream));
+            return try self.handleStream(@constCast(&conn));
         } else |err| {
             return err;
         }
@@ -382,33 +430,25 @@ pub const WebSocketManager = struct {
         while (self.listener.accept(self.io)) |conn| {
             const ip4 = conn.socket.address.ip4;
             std.log.info("Accepted Connection from: {s}:{d}", .{ ip4.bytes, ip4.port });
-            server = try self.handleStream(@constCast(&conn.stream));
+            server = try self.handleStream(@constCast(&conn));
         } else |err| {
             return err;
         }
     }
 
-    pub fn sendData(_: *WebSocketManager, data: []const u8) !void {
-        try server.sendData(data);
-    }
-
     fn handleStream(self: *WebSocketManager, stream: *std.Io.net.Stream) !WebSocketServer {
         var recv_buf: [2048]u8 = undefined;
-        var recv_total: usize = 0;
 
         const reader_wrap = stream.reader(self.io, &recv_buf);
         var reader = reader_wrap.interface;
 
-        while (true) {
-            const l = try reader.takeDelimiterInclusive('\n');
-            recv_total += l.len;
+        var buf: [1024]u8 = undefined;
+        var writer = stream.writer(self.io, &buf);
+        const len = try reader.streamRemaining(&writer.interface);
+        try writer.interface.flush();
 
-            if (std.mem.eql(u8, l, "\r\n\r\n")) break;
-        }
-
-        const recv_slice = recv_buf[0..recv_total];
         var parser = WebSocketRequestParser{ .allocator = self.allocator };
-        var request = try parser.parse(recv_slice);
+        var request = try parser.parse(buf[0..len]);
         defer request.deinit();
 
         if (request.contains("Upgrade") and request.contains("Connection") and request.contains("Sec-WebSocket-Key")) {

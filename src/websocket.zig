@@ -380,7 +380,8 @@ pub const WebSocketManager = struct {
     // Use for Thread.spawn.
     pub fn connect(self: *WebSocketManager) !void {
         while (self.listener.accept(self.io)) |conn| {
-            std.log.info("Accepted Connection from: {}", .{conn.address});
+            const ip4 = conn.socket.address.ip4;
+            std.log.info("Accepted Connection from: {s}:{d}", .{ ip4.bytes, ip4.port });
             server = try self.handleStream(@constCast(&conn.stream));
         } else |err| {
             return err;

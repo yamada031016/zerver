@@ -1,8 +1,10 @@
 const std = @import("std");
-const net = std.net;
+const net = std.Io.net;
+const Allocator = std.mem.Allocator;
 
-pub fn main() !void {
-    var manager = try WebSocketManager.init(5555);
+pub fn main(init: std.process.Init) !void {
+    const allocator: std.mem.Allocator = init.gpa;
+    var manager = try WebSocketManager.init(init.io, allocator, 5555);
     var ws = try manager.waitConnection();
     while (true) {
         try ws.sendData("Reload!");
@@ -11,55 +13,24 @@ pub fn main() !void {
 }
 
 pub const WebSocketManager = struct {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    const allocator = gpa.allocator();
     var server: WebSocketServer = undefined;
 
-    listener: std.net.Server,
+    allocator: Allocator,
+    io: std.Io,
+    listener: std.Io.net.Server,
 
-    pub fn init(port: u16) !WebSocketManager {
-        var self_port_addr = port;
-        // avoid bug in Windows where
-        // resolveIp() tries to force the argument to resolve to IPv6
-        // https://github.com/ziglang/zig/issues/20530
-        var self_addr = avoid: {
-            switch (@import("builtin").os.tag) {
-                .windows => {
-                    break :avoid net.Address.initIp4(.{ 127, 0, 0, 1 }, self_port_addr);
-                },
-                else => break :avoid try net.Address.resolveIp("127.0.0.1", self_port_addr),
-            }
-        };
-        const listener = listen: {
-            while (true) {
-                if (net.Address.listen(self_addr, .{})) |_listener| {
-                    break :listen _listener;
-                } else |err| {
-                    switch (err) {
-                        error.AddressInUse => {
-                            std.log.info("port :{} is already in use.\n", .{self_port_addr});
-                            self_port_addr += 1;
-                            self_addr = avoid: {
-                                switch (@import("builtin").os.tag) {
-                                    .windows => {
-                                        break :avoid net.Address.initIp4(.{ 127, 0, 0, 1 }, self_port_addr);
-                                    },
-                                    else => break :avoid try net.Address.resolveIp("127.0.0.1", self_port_addr),
-                                }
-                            };
-                        },
-                        else => std.log.err("{s}\n", .{@errorName(err)}),
-                    }
-                }
-            }
-        };
+    pub fn init(io: std.Io, allocator: Allocator, port: u16) !WebSocketManager {
+        const addr = try std.Io.net.IpAddress.parse("127.0.0.1", port);
+        const listener = try net.IpAddress.listen(&addr, io, .{ .reuse_address = true });
         return .{
+            .allocator = allocator,
+            .io = io,
             .listener = listener,
         };
     }
 
     pub fn waitConnection(self: *WebSocketManager) !WebSocketServer {
-        while (self.listener.accept()) |conn| {
+        while (self.listener.accept(self.io)) |conn| {
             std.log.info("Accepted Connection from: {}", .{conn.address});
             return try self.handleStream(@constCast(&conn.stream));
         } else |err| {
@@ -68,7 +39,7 @@ pub const WebSocketManager = struct {
     }
 
     pub fn connect(self: *WebSocketManager) !void {
-        while (self.listener.accept()) |conn| {
+        while (self.listener.accept(self.io)) |conn| {
             std.log.info("Accepted Connection from: {}", .{conn.address});
             server = try self.handleStream(@constCast(&conn.stream));
         } else |err| {
@@ -80,19 +51,23 @@ pub const WebSocketManager = struct {
         try server.sendData(data);
     }
 
-    fn handleStream(_: *WebSocketManager, stream: *std.net.Stream) !WebSocketServer {
+    fn handleStream(self: *WebSocketManager, stream: *std.net.Stream) !WebSocketServer {
         var recv_buf: [2048]u8 = undefined;
         var recv_total: usize = 0;
-        while (stream.read(recv_buf[0..])) |recv_len| {
-            recv_total += recv_len;
-            if (std.mem.containsAtLeast(u8, recv_buf[0..recv_total], 1, "\r\n\r\n"))
-                break;
-        } else |read_err| {
-            return read_err;
+
+        const reader_wrap = stream.reader(self.io, &recv_buf);
+        var reader = reader_wrap.interface;
+
+        while (true) {
+            const l = try reader.takeDelimiterInclusive('\n');
+            recv_total += l.len;
+
+            if (std.mem.eql(u8, l, "\r\n\r\n")) break;
         }
+
         const recv_slice = recv_buf[0..recv_total];
         var request = parseRequest: {
-            var _req = std.StringHashMap([]const u8).init(std.heap.page_allocator);
+            var _req = std.StringHashMap([]const u8).init(self.allocator);
             defer _req.deinit();
             var tok_itr = std.mem.tokenizeAny(u8, recv_slice, "\r\n");
             var method = std.mem.tokenizeAny(u8, tok_itr.next().?, " ");
@@ -109,10 +84,13 @@ pub const WebSocketManager = struct {
             break :parseRequest try _req.clone();
         };
         defer request.deinit();
+
         if (request.contains("Upgrade") and request.contains("Connection") and request.contains("Sec-WebSocket-Key")) {
             if (std.mem.eql(u8, request.get("Upgrade").?, " websocket") and std.mem.eql(u8, request.get("Connection").?, " Upgrade")) {
                 const key = request.get("Sec-WebSocket-Key").?;
                 var a = WebSocketServer{
+                    .allocator = self.allocator,
+                    .io = self.io,
                     .stream = stream,
                     .key = key,
                 };
@@ -125,18 +103,23 @@ pub const WebSocketManager = struct {
 };
 
 pub const WebSocketServer = struct {
-    stream: *std.net.Stream,
+    allocator: Allocator,
+    io: std.Io,
+    stream: *std.Io.net.Stream,
     key: []const u8,
 
     fn deinit(self: *const WebSocketServer) void {
-        self.stream.close();
+        self.stream.close(self.io);
     }
 
     pub fn readLoop(self: *const WebSocketServer) !void {
         std.log.debug("start WebSocket connection!\n", .{});
         var buf: [128]u8 = undefined;
-        while (self.stream.read(&buf)) |_| {
-            const first_byte = buf[0];
+        var reader = self.stream.reader(self.io, &buf).interface;
+
+        while (true) {
+            const l = try reader.takeDelimiterInclusive('\n');
+            const first_byte = l[0];
             const _fin = first_byte & 0b10000000;
             const _rsv1 = first_byte & 0b01000000;
             const _rsv2 = first_byte & 0b00100000;
@@ -145,7 +128,7 @@ pub const WebSocketServer = struct {
             if (_opcode == 0x8) break; // connection close
             std.log.debug("header: {}:{}:{}:{}:{}\n", .{ _fin, _rsv1, _rsv2, _rsv3, _opcode });
 
-            const second_byte = buf[1];
+            const second_byte = l[1];
             const _mask = second_byte & 0b10000000;
             std.log.debug("mask: {}\n", .{_mask});
             var payload_len: u64 = second_byte & 0b01111111;
@@ -156,7 +139,7 @@ pub const WebSocketServer = struct {
                     std.log.debug("126!\n", .{});
                     const expand_payload_len = ArrayToBytes: {
                         var tmp: u16 = 0;
-                        for (buf[2..4], 0..) |byte, i| {
+                        for (l[2..4], 0..) |byte, i| {
                             tmp += byte << @intCast(1 - i);
                         }
                         break :ArrayToBytes tmp;
@@ -168,7 +151,7 @@ pub const WebSocketServer = struct {
                     std.log.debug("127!\n", .{});
                     const expand_payload_len = ArrayToBytes: {
                         var tmp: u64 = 0;
-                        for (buf[2..9], 0..) |byte, i| {
+                        for (l[2..9], 0..) |byte, i| {
                             tmp += byte << @intCast(8 - i);
                         }
                         break :ArrayToBytes tmp;
@@ -179,14 +162,14 @@ pub const WebSocketServer = struct {
                 else => {},
             }
 
-            const masking_key = if (_mask == 128) buf[mask_key_start .. mask_key_start + 4] else undefined;
+            const masking_key = if (_mask == 128) l[mask_key_start .. mask_key_start + 4] else undefined;
 
             if (payload_len == 0)
                 continue;
 
             if (_mask == 128) {
                 const payload_start = mask_key_start + 4;
-                const encoded_payload = buf[payload_start..];
+                const encoded_payload = l[payload_start..];
                 var tmp: [128]u8 = undefined;
                 std.log.debug("len: {}\n", .{encoded_payload.len});
                 for (encoded_payload, 0..) |byte, i| {
@@ -195,12 +178,9 @@ pub const WebSocketServer = struct {
                 std.log.debug("payload: {s}\n", .{tmp[0..payload_len]});
             } else {
                 const payload_start = mask_key_start;
-                const encoded_payload = buf[payload_start..];
+                const encoded_payload = l[payload_start..];
                 std.log.debug("nomask payload: {s}\n", .{encoded_payload});
             }
-        } else |err| {
-            std.log.err("Failed to accept connection: {}", .{err});
-            return err;
         }
     }
 
@@ -209,13 +189,16 @@ pub const WebSocketServer = struct {
         buf[0] = 0b1000_0001;
         buf[1] = @intCast(data.len);
         @memcpy(buf[2 .. 2 + data.len], data[0..]);
-        try self.stream.writer().writeAll(buf[0 .. 2 + data.len]);
+        var writer = self.stream.writer(self.io, &buf);
+        try writer.interface.writeAll(buf[0 .. 2 + data.len]);
         std.log.debug("Reload!\n", .{});
     }
 
     pub fn handshakeWebSocketOpening(self: *WebSocketServer) !void {
         const magic = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"; // specified at RFC 6455
-        const raw_key = try std.fmt.allocPrintZ(std.heap.page_allocator, "{s}{s}", .{ self.key[1..], magic }); // keyの1文字目に空白が入っているため除外
+        const raw_key = try std.fmt.allocPrint(self.allocator, "{s}{s}", .{ self.key[1..], magic }); // keyの1文字目に空白が入っているため除外
+        defer self.allocator.free(raw_key);
+
         var out: [20]u8 = undefined; // 20 is digest_length
         std.crypto.hash.Sha1.hash(raw_key, &out, .{});
 
@@ -230,9 +213,10 @@ pub const WebSocketServer = struct {
             \\
             \\
         ;
-        const res = try std.fmt.allocPrintZ(std.heap.page_allocator, res_template, .{encoded_key});
+        const res = try std.fmt.allocPrint(self.allocator, res_template, .{encoded_key});
         std.log.debug("{s}", .{res});
-        try self.stream.writer().writeAll(res);
+        var writer = self.stream.writer(self.io, &buf);
+        try writer.interface.writeAll(res);
     }
 };
 
@@ -270,3 +254,16 @@ pub const WebSocketFormat = extern struct {
         }
     }
 };
+
+test "WebSocketManager init" {
+    const allocator = std.testing.allocator;
+    const io = std.testing.io;
+
+    _ = try WebSocketManager.init(io, allocator, 5555);
+}
+
+test "WebSocketFormat init" {
+    var payload: [10]u8 = undefined;
+    const fmt = WebSocketFormat.init(&payload);
+    try std.testing.expect(fmt.payload_len == 10);
+}

@@ -9,7 +9,6 @@ pub const ExecuteOptions = struct {
     port_number: u16 = 8080,
 };
 
-
 pub fn main(init: std.process.Init) !void {
     const allocator: std.mem.Allocator = init.gpa;
 
@@ -55,7 +54,7 @@ fn parseArgs(allocator: Allocator, args: std.process.Args) !ParseResult {
 
     while (args_iter.next()) |arg| {
         if (arg.len > 0 and arg[0] == '-') {
-            switch(arg[1]) {
+            switch (arg[1]) {
                 'h' => return ParseResult.help,
                 'd' => state = .dir,
                 'i' => state = .ip,
@@ -84,18 +83,20 @@ fn parseArgs(allocator: Allocator, args: std.process.Args) !ParseResult {
 test "parse args" {
     const allocator = std.testing.allocator;
 
-    const args = [_][]const u8{
+    const args_list = [_][*:0]const u8{
         "zerver",
         "-d",
         "public",
         "-p",
         "9000",
     };
+    const args_vec: std.process.Args.Vector = &args_list;
+    const args = std.process.Args{ .vector = args_vec };
 
-    const opt = try parseArgs(allocator, &args);
+    const opt = try parseArgs(allocator, args);
 
-    try std.testing.expectEqualStrings("public", opt.dirname);
-    try std.testing.expect(opt.port_number == 9000);
+    try std.testing.expectEqualStrings("public", opt.ok.dirname);
+    try std.testing.expect(opt.ok.port_number == 9000);
 }
 
 fn printHelp(io: std.Io) !void {

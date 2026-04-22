@@ -399,7 +399,7 @@ test "websocket accept key" {
 }
 
 pub const WebSocketManager = struct {
-    var server: WebSocketServer = undefined;
+    var server: ?WebSocketServer = null;
 
     allocator: Allocator,
     io: std.Io,
@@ -437,7 +437,8 @@ pub const WebSocketManager = struct {
     }
 
     pub fn sendData(_: *WebSocketManager, data: []const u8) !void {
-        try server.sendData(data);
+        if (server == null) return error.ServerNotInitialized;
+        try server.?.sendData(data);
     }
 
     fn handleStream(self: *WebSocketManager, stream: *std.Io.net.Stream) !WebSocketServer {
@@ -501,8 +502,9 @@ pub const WebSocketServer = struct {
             const second_byte = l[1];
             const _mask = second_byte & 0b10000000;
             std.log.debug("mask: {}\n", .{_mask});
+
             var payload_len: u64 = second_byte & 0b01111111;
-            var mask_key_start: usize = 2;
+            var payload_offset: usize = 2;
             switch (payload_len) {
                 //Big Endian
                 126 => {
@@ -515,7 +517,7 @@ pub const WebSocketServer = struct {
                         break :ArrayToBytes tmp;
                     };
                     payload_len = @intCast(@byteSwap(@as(u16, @intCast(payload_len)) + expand_payload_len));
-                    mask_key_start = 4;
+                    payload_offset = 4;
                 },
                 127 => {
                     std.log.debug("127!\n", .{});
@@ -527,18 +529,18 @@ pub const WebSocketServer = struct {
                         break :ArrayToBytes tmp;
                     };
                     payload_len = @byteSwap(payload_len + expand_payload_len);
-                    mask_key_start = 10;
+                    payload_offset = 10;
                 },
                 else => {},
             }
 
-            const masking_key = if (_mask == 128) l[mask_key_start .. mask_key_start + 4] else undefined;
+            const masking_key = if (_mask == 128) l[payload_offset .. payload_offset + 4] else undefined;
 
             if (payload_len == 0)
                 continue;
 
             if (_mask == 128) {
-                const payload_start = mask_key_start + 4;
+                const payload_start = payload_offset + 4;
                 const encoded_payload = l[payload_start..];
                 var tmp: [128]u8 = undefined;
                 std.log.debug("len: {}\n", .{encoded_payload.len});
@@ -547,7 +549,7 @@ pub const WebSocketServer = struct {
                 }
                 std.log.debug("payload: {s}\n", .{tmp[0..payload_len]});
             } else {
-                const payload_start = mask_key_start;
+                const payload_start = payload_offset;
                 const encoded_payload = l[payload_start..];
                 std.log.debug("nomask payload: {s}\n", .{encoded_payload});
             }
@@ -585,7 +587,8 @@ pub const WebSocketServer = struct {
         ;
         const res = try std.fmt.allocPrint(self.allocator, res_template, .{encoded_key});
         std.log.debug("{s}", .{res});
-        var writer = self.stream.writer(self.io, &buf);
+        var buf2: [128]u8 = undefined;
+        var writer = self.stream.writer(self.io, &buf2);
         try writer.interface.writeAll(res);
     }
 };

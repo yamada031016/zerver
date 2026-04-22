@@ -436,6 +436,10 @@ pub const WebSocketManager = struct {
         }
     }
 
+    pub fn sendData(_: *WebSocketManager, data: []const u8) !void {
+        try server.sendData(data);
+    }
+
     fn handleStream(self: *WebSocketManager, stream: *std.Io.net.Stream) !WebSocketServer {
         var recv_buf: [2048]u8 = undefined;
 
